@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "access_tokens" ADD COLUMN     "token_ciphertext" TEXT;

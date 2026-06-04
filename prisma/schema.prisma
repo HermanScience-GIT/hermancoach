@@ -69,6 +69,7 @@ model AccessToken {
   id                 String             @id @default(cuid())
   contactId          String             @map("contact_id")
   tokenHash          String             @unique @map("token_hash")
+  tokenCiphertext    String?            @map("token_ciphertext")
   tokenPrefix        String?            @map("token_prefix")
   createdAt          DateTime           @default(now()) @map("created_at")
   lastUsedAt         DateTime?          @map("last_used_at")

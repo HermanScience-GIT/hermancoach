@@ -64,6 +64,26 @@ Personalized coach route example:
 http://127.0.0.1:8765/u/hsc-7f4a9d2b81
 ```
 
+## Prototype API
+
+Score a prompt:
+
+```text
+POST /api/score-preview
+```
+
+Create or reuse a contest entry:
+
+```text
+POST /api/entries
+```
+
+Load a personalized coach session:
+
+```text
+GET /api/coach/session?token=hsc-...
+```
+
 ## Railway
 
 The hosted app should run as one Node web service connected to a Railway Postgres service in the same Railway project. Set production secrets manually in Railway; do not commit `.env` files.
