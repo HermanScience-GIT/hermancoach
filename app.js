@@ -3,7 +3,6 @@ const promptForm = document.querySelector("#prompt-form");
 const contactForm = document.querySelector("#contact-form");
 const promptInput = document.querySelector("#prompt-input");
 const charCount = document.querySelector("#char-count");
-const openCoachButton = document.querySelector("#open-coach");
 const backResultsButton = document.querySelector("#back-results");
 const copyPromptButton = document.querySelector("#copy-prompt");
 const draftInput = document.querySelector("#draft-input");
@@ -18,8 +17,8 @@ function showScreen(name, options = {}) {
 
   if (name === "coach") {
     history.pushState({ screen: "coach" }, "", `/u/${demoToken}`);
-  } else if (name === "reveal") {
-    history.pushState({ screen: "reveal" }, "", `/#results`);
+  } else if (name === "score") {
+    history.pushState({ screen: "score" }, "", `/#score`);
   }
 
   if (!options.skipScroll) {
@@ -48,21 +47,19 @@ promptForm.addEventListener("submit", (event) => {
     promptInput.focus();
     return;
   }
-  showScreen("teaser");
+  showScreen("score");
 });
 
 contactForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  showScreen("reveal");
-});
-
-openCoachButton.addEventListener("click", () => {
   showScreen("coach");
 });
 
-backResultsButton.addEventListener("click", () => {
-  showScreen("reveal");
-});
+if (backResultsButton) {
+  backResultsButton.addEventListener("click", () => {
+    showScreen("score");
+  });
+}
 
 copyPromptButton.addEventListener("click", async () => {
   try {
@@ -88,6 +85,8 @@ document.querySelectorAll("[data-jump]").forEach((button) => {
 window.addEventListener("popstate", () => {
   if (window.location.pathname.startsWith("/u/")) {
     showScreen("coach", { skipScroll: true });
+  } else if (window.location.hash === "#score") {
+    showScreen("score", { skipScroll: true });
   } else {
     showScreen("challenge", { skipScroll: true });
   }
@@ -95,4 +94,6 @@ window.addEventListener("popstate", () => {
 
 if (window.location.pathname.startsWith("/u/")) {
   showScreen("coach", { skipScroll: true });
+} else if (window.location.hash === "#score") {
+  showScreen("score");
 }
