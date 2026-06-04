@@ -592,6 +592,17 @@ input {
   margin-top: 4px;
 }
 
+.suggestion-output {
+  margin-top: 10px;
+  padding: 14px;
+  border: 1px solid rgba(78, 138, 217, 0.28);
+  border-radius: 14px;
+  color: #111a35;
+  background: linear-gradient(180deg, #f8faff, #eef5ff);
+  line-height: 1.45;
+  font-weight: 700;
+}
+
 .question-panel {
   padding-bottom: 18px;
 }

@@ -138,6 +138,9 @@ export function scorePrompt(promptText) {
     feedbackSummary: feedbackFor(overallScore),
     headline: headlineFor(overallScore),
     weakestDimension: weakestDimension({ whoScore, taskScore, contextScore, outputScore }),
+    coachingSuggestion: coachingSuggestionFor(
+      weakestDimension({ whoScore, taskScore, contextScore, outputScore }),
+    ),
   };
 }
 
@@ -146,6 +149,32 @@ export function scoreNarrative(overallScore) {
     headline: headlineFor(overallScore),
     feedbackSummary: feedbackFor(overallScore),
   };
+}
+
+export function coachingSuggestionFor(dimension) {
+  const suggestions = {
+    who: {
+      title: "Define who the model should be",
+      body: "Add a role or audience signal so the model knows the perspective it should use.",
+      example: "Example: You are an experienced sales enablement coach helping a frontline manager.",
+    },
+    task: {
+      title: "Make the task more specific",
+      body: "State the exact action you want the model to take and what success looks like.",
+      example: "Example: Create a 5-step action plan that a manager can use this week.",
+    },
+    context: {
+      title: "Add stronger context",
+      body: "Include the situation, audience, constraints, or decision the model should keep in mind.",
+      example: "Example: This is for a sales leader preparing Q3 planning with a new team.",
+    },
+    output: {
+      title: "Specify the output format",
+      body: "Tell the model what shape the answer should take so the result is easier to use.",
+      example: "Example: Return a table with columns for owner, action, timing, and success criteria.",
+    },
+  };
+  return suggestions[dimension] || suggestions.context;
 }
 
 function headlineFor(score) {

@@ -5,6 +5,7 @@ const promptInput = document.querySelector("#prompt-input");
 const charCount = document.querySelector("#char-count");
 const backResultsButton = document.querySelector("#back-results");
 const copyPromptButton = document.querySelector("#copy-prompt");
+const rescoreDraftButton = document.querySelector("#rescore-draft");
 const draftInput = document.querySelector("#draft-input");
 const toast = document.querySelector("#toast");
 const scoreScreen = document.querySelector('[data-screen="score"]');
@@ -15,6 +16,9 @@ const coachScorePanel = document.querySelector(".coach-score-panel");
 const firstNameInput = document.querySelector("#first-name-input");
 const lastNameInput = document.querySelector("#last-name-input");
 const emailInput = document.querySelector("#email-input");
+const coachSuggestionTitle = document.querySelector("#coach-suggestion-title");
+const coachSuggestionBody = document.querySelector("#coach-suggestion-body");
+const coachSuggestionOutput = document.querySelector("#coach-suggestion-output");
 
 const demoToken = "hsc-7f4a9d2b81";
 let currentPromptText = promptInput.value.trim();
@@ -83,6 +87,20 @@ function applyScore(score) {
   }
   updateScorePanel(scoreDimensionPanel, score);
   updateScorePanel(coachScorePanel, score);
+  applySuggestion(score.coachingSuggestion);
+}
+
+function applySuggestion(suggestion) {
+  if (!suggestion) return;
+  if (coachSuggestionTitle) {
+    coachSuggestionTitle.textContent = suggestion.title;
+  }
+  if (coachSuggestionBody) {
+    coachSuggestionBody.textContent = suggestion.body;
+  }
+  if (coachSuggestionOutput) {
+    coachSuggestionOutput.textContent = suggestion.example;
+  }
 }
 
 function updateScorePanel(panel, score) {
@@ -200,6 +218,41 @@ copyPromptButton.addEventListener("click", async () => {
     showToast("Copied prompt to clipboard");
   } catch {
     showToast("Copy unavailable in this browser");
+  }
+});
+
+rescoreDraftButton.addEventListener("click", async () => {
+  const token = tokenFromPath();
+  const currentPrompt = draftInput.value.trim();
+  if (!token || token === demoToken) {
+    showToast("Open your personal coach link before rescoring");
+    return;
+  }
+  if (currentPrompt.length < 20) {
+    showToast("Add a little more prompt detail first");
+    draftInput.focus();
+    return;
+  }
+  const finishLoading = setButtonLoading(rescoreDraftButton, "Rescoring...");
+  try {
+    const payload = await apiFetch("/api/coach/rescore", {
+      method: "POST",
+      body: JSON.stringify({
+        token,
+        currentPrompt,
+      }),
+    });
+    if (payload.coachSession?.currentPrompt) {
+      draftInput.value = payload.coachSession.currentPrompt;
+    }
+    if (payload.score) {
+      applyScore(payload.score);
+    }
+    showToast("Draft rescored");
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    finishLoading();
   }
 });
 

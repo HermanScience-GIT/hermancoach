@@ -183,7 +183,7 @@ Task: Help me improve a prompt so it produces a useful, trustworthy response.
 Context: I want to use the answer at work and need guidance that is specific enough to act on.
 Output: Return a concise revised prompt, then explain the two most important changes.</textarea>
               <div class="coach-actions">
-                <button class="secondary-button" type="button">Rescore Draft</button>
+                <button class="secondary-button" type="button" id="rescore-draft">Rescore Draft</button>
                 <button class="primary-button" type="button" id="copy-prompt">Copy Prompt</button>
               </div>
             </section>
@@ -220,12 +220,13 @@ Output: Return a concise revised prompt, then explain the two most important cha
 
               <section class="question-panel">
                 <p class="kicker">Coaching Suggestion</p>
-                <h3>Add stronger context</h3>
-                <p>
+                <h3 id="coach-suggestion-title">Add stronger context</h3>
+                <p id="coach-suggestion-body">
                   What specific situation, audience, constraint, or decision should the model keep in mind?
                 </p>
-                <label class="sr-only" for="coach-answer">Answer coaching question</label>
-                <input id="coach-answer" type="text" placeholder="Example: This is for a sales leader preparing Q3 planning." />
+                <div class="suggestion-output" id="coach-suggestion-output">
+                  Example: This is for a sales leader preparing Q3 planning.
+                </div>
               </section>
 
               <section class="teaser-card">

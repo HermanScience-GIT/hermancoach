@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { prisma } from "./db.js";
-import { scoreNarrative, scorePrompt } from "./scoring.js";
+import { coachingSuggestionFor, scoreNarrative, scorePrompt } from "./scoring.js";
 import {
   clientIp,
   decryptValue,
@@ -15,7 +15,6 @@ import {
   hashToken,
   normalizeEmail,
   randomToken,
-  sha256,
 } from "./security.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -240,7 +239,14 @@ app.get("/api/coach/session", async (request, response) => {
   const accessToken = await prisma.accessToken.findUnique({
     where: { tokenHash },
     include: {
-      contact: true,
+      contact: {
+        include: {
+          promptSubmissions: {
+            orderBy: { createdAt: "asc" },
+            take: 1,
+          },
+        },
+      },
       coachSessions: {
         orderBy: { updatedAt: "desc" },
         take: 1,
@@ -278,8 +284,25 @@ app.get("/api/coach/session", async (request, response) => {
     },
   });
 
-  const session = accessToken.coachSessions[0];
+  let session = accessToken.coachSessions[0];
+  const originalSubmission = accessToken.contact.promptSubmissions[0];
+  if (session && originalSubmission && isLegacyStructuredPrompt(session.currentPrompt)) {
+    session = await prisma.coachSession.update({
+      where: { id: session.id },
+      data: {
+        currentPrompt: originalSubmission.promptText,
+        overallScore: originalSubmission.overallScore,
+        whoScore: originalSubmission.whoScore,
+        taskScore: originalSubmission.taskScore,
+        contextScore: originalSubmission.contextScore,
+        outputScore: originalSubmission.outputScore,
+      },
+    });
+  }
   const narrative = session ? scoreNarrative(session.overallScore) : null;
+  const weakestDimension = session
+    ? weakestDimensionFromScores(session)
+    : "context";
   response.json({
     contact: {
       firstName: accessToken.contact.firstName,
@@ -296,6 +319,7 @@ app.get("/api/coach/session", async (request, response) => {
           outputScore: session.outputScore,
           headline: narrative.headline,
           feedbackSummary: narrative.feedbackSummary,
+          coachingSuggestion: coachingSuggestionFor(weakestDimension),
         }
       : null,
     sharingNotice: showSharingNotice
@@ -306,6 +330,66 @@ app.get("/api/coach/session", async (request, response) => {
           mismatchCount: updatedToken.ipMismatchCount,
         }
       : null,
+  });
+});
+
+app.post("/api/coach/rescore", async (request, response) => {
+  const rawToken = String(request.body?.token || "").trim();
+  const currentPrompt = String(request.body?.currentPrompt || "").trim();
+  if (!rawToken) {
+    response.status(400).json({ error: "Token is required." });
+    return;
+  }
+  if (currentPrompt.length < 20 || currentPrompt.length > 1200) {
+    response.status(400).json({ error: "Draft must be between 20 and 1,200 characters." });
+    return;
+  }
+
+  const accessToken = await prisma.accessToken.findUnique({
+    where: { tokenHash: hashToken(rawToken) },
+    include: {
+      coachSessions: {
+        orderBy: { updatedAt: "desc" },
+        take: 1,
+      },
+    },
+  });
+  if (!accessToken || accessToken.revokedAt) {
+    response.status(404).json({ error: "Coach link was not found." });
+    return;
+  }
+
+  const existingSession = accessToken.coachSessions[0];
+  if (!existingSession) {
+    response.status(404).json({ error: "Coach session was not found." });
+    return;
+  }
+
+  const score = scorePrompt(currentPrompt);
+  const coachSession = await prisma.coachSession.update({
+    where: { id: existingSession.id },
+    data: {
+      currentPrompt,
+      draftVersion: { increment: 1 },
+      overallScore: score.overallScore,
+      whoScore: score.whoScore,
+      taskScore: score.taskScore,
+      contextScore: score.contextScore,
+      outputScore: score.outputScore,
+    },
+  });
+  await prisma.tokenAccessEvent.create({
+    data: {
+      accessTokenId: accessToken.id,
+      ipHash: hashIp(clientIp(request)),
+      userAgent: String(request.headers["user-agent"] || "").slice(0, 500) || null,
+      action: "rescore",
+    },
+  });
+
+  response.json({
+    coachSession,
+    score,
   });
 });
 
@@ -328,3 +412,18 @@ app.use((_request, response) => {
 app.listen(port, host, () => {
   console.log(`HermanCoach listening on http://${host}:${port}`);
 });
+
+function isLegacyStructuredPrompt(currentPrompt) {
+  return String(currentPrompt || "").startsWith(
+    "Who: You are a practical AI productivity coach.\nTask: Improve this prompt",
+  );
+}
+
+function weakestDimensionFromScores(session) {
+  return [
+    ["who", session.whoScore],
+    ["task", session.taskScore],
+    ["context", session.contextScore],
+    ["output", session.outputScore],
+  ].sort((a, b) => a[1] - b[1])[0][0];
+}
