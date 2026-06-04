@@ -190,7 +190,7 @@ app.post("/api/entries", async (request, response) => {
         data: {
           contactId: contact.id,
           accessTokenId: accessToken.id,
-          currentPrompt: structuredPromptFrom(promptText),
+          currentPrompt: promptText,
           draftVersion: 1,
           overallScore: score.overallScore,
           whoScore: score.whoScore,
@@ -328,10 +328,3 @@ app.use((_request, response) => {
 app.listen(port, host, () => {
   console.log(`HermanCoach listening on http://${host}:${port}`);
 });
-
-function structuredPromptFrom(promptText) {
-  return `Who: You are a practical AI productivity coach.
-Task: Improve this prompt so it produces a useful, trustworthy response.
-Context: The user's original prompt was: ${promptText}
-Output: Return a concise revised prompt, then explain the two most important changes.`;
-}
