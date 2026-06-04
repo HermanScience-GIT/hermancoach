@@ -28,6 +28,12 @@ Generate Prisma client:
 npm run db:generate
 ```
 
+Apply local database migrations:
+
+```bash
+npm run db:migrate
+```
+
 Start the app:
 
 ```bash
@@ -46,6 +52,12 @@ Health check:
 http://127.0.0.1:8765/health
 ```
 
+Database health check:
+
+```text
+http://127.0.0.1:8765/health/db
+```
+
 Personalized coach route example:
 
 ```text
@@ -55,3 +67,9 @@ http://127.0.0.1:8765/u/hsc-7f4a9d2b81
 ## Railway
 
 The hosted app should run as one Node web service connected to a Railway Postgres service in the same Railway project. Set production secrets manually in Railway; do not commit `.env` files.
+
+Run production migrations during deploy with:
+
+```bash
+npm run db:deploy
+```

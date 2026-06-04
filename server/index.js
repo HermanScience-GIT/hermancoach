@@ -4,6 +4,8 @@ import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { prisma } from "./db.js";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "..");
@@ -21,6 +23,23 @@ app.get("/health", (_request, response) => {
     ok: true,
     service: "herman-coach",
   });
+});
+
+app.get("/health/db", async (_request, response) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    response.json({
+      ok: true,
+      service: "herman-coach",
+      database: "reachable",
+    });
+  } catch {
+    response.status(503).json({
+      ok: false,
+      service: "herman-coach",
+      database: "unreachable",
+    });
+  }
 });
 
 app.use("/assets", express.static(path.join(rootDir, "assets"), { index: false }));
