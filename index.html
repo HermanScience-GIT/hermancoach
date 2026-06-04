@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>HermanScience Prompt Challenge</title>
+    <link rel="icon" href="/assets/favicon.jpg" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="site-header" aria-label="HermanScience header">
+        <a class="brand-link" href="./" aria-label="HermanScience Prompt Challenge">
+          <img src="/assets/logo.png" alt="HermanScience - Creating AI-confident workforces" />
+        </a>
+        <nav class="header-actions" aria-label="Prototype navigation">
+          <button class="nav-button" type="button" data-jump="challenge">Challenge</button>
+          <button class="nav-button" type="button" data-jump="coach">Coach Preview</button>
+        </nav>
+      </header>
+
+      <main>
+        <section class="hero-section" data-screen="challenge" id="challenge">
+          <div class="hero-copy">
+            <p class="kicker">Weekly Prompt Challenge</p>
+            <h1>Prompting is personal.</h1>
+            <p class="lead">
+              Submit your strongest prompt. We will score its structure, show how it compares,
+              and unlock a coaching workspace that helps turn better prompts into better AI work.
+            </p>
+            <div class="proof-strip" aria-label="Value statements">
+              <span>One entry per email</span>
+              <span>Random weekly shirt drawing</span>
+              <span>Coach unlock after entry</span>
+            </div>
+          </div>
+
+          <form class="prompt-panel" id="prompt-form">
+            <div class="panel-heading">
+              <div>
+                <p class="kicker">Your Entry</p>
+                <h2>Enter your best possible prompt</h2>
+              </div>
+              <span class="limit-pill"><span id="char-count">0</span>/1,200</span>
+            </div>
+            <label class="sr-only" for="prompt-input">Prompt entry</label>
+            <textarea
+              id="prompt-input"
+              maxlength="1200"
+              placeholder="Paste the prompt you would give to ChatGPT, Claude, Gemini, Perplexity, or another LLM..."
+            ></textarea>
+            <div class="form-footer">
+              <p>No coaching yet. Just submit the prompt as you would naturally write it.</p>
+              <button class="primary-button" type="submit">Score My Prompt</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="screen hidden" data-screen="teaser" id="score-teaser" aria-live="polite">
+          <div class="score-teaser-layout">
+            <div class="score-hero">
+              <p class="kicker">Initial Score</p>
+              <div class="score-ring" aria-label="Mock overall score">
+                <span id="overall-score">78</span>
+                <small>/100</small>
+              </div>
+              <h2>Strong start. Your structure is doing real work.</h2>
+              <p>
+                Your prompt gives the model a useful direction, but clearer context and output
+                expectations would make the response easier to trust and act on.
+              </p>
+            </div>
+
+            <form class="contact-panel" id="contact-form">
+              <p class="kicker">Unlock Results</p>
+              <h2>Enter once. Keep your coach link.</h2>
+              <p class="muted">
+                Share your contact info to see how you compare, enter the weekly drawing,
+                and unlock your reusable Prompt Coach.
+              </p>
+              <div class="field-grid">
+                <label>
+                  Name
+                  <input id="name-input" type="text" placeholder="Jordan Lee" required />
+                </label>
+                <label>
+                  Work email
+                  <input id="email-input" type="email" placeholder="jordan@company.com" required />
+                </label>
+              </div>
+              <label class="checkbox-row">
+                <input type="checkbox" required />
+                <span>I agree to enter the weekly random drawing and receive my coach link.</span>
+              </label>
+              <button class="primary-button full" type="submit">Reveal My Results</button>
+            </form>
+          </div>
+        </section>
+
+        <section class="screen hidden" data-screen="reveal" id="results">
+          <div class="results-header">
+            <div>
+              <p class="kicker">Detailed Reveal</p>
+              <h2>You are entered. Your coach is unlocked.</h2>
+              <p>
+                We would send a confirmation email for prize eligibility. Your coach link is ready now.
+              </p>
+            </div>
+            <div class="access-link">
+              <span>Personal URL</span>
+              <strong id="access-url">/u/hsc-7f4a9d2b81</strong>
+            </div>
+          </div>
+
+          <div class="results-grid">
+            <article class="metric-panel">
+              <span>Overall score</span>
+              <strong>78</strong>
+              <p>Top 24% of all submissions</p>
+            </article>
+            <article class="metric-panel">
+              <span>This week</span>
+              <strong>#18</strong>
+              <p>Out of 74 prompt entries</p>
+            </article>
+            <article class="metric-panel">
+              <span>All time</span>
+              <strong>#142</strong>
+              <p>Out of 618 prompt entries</p>
+            </article>
+          </div>
+
+          <div class="dimension-layout">
+            <section class="dimension-panel" aria-label="Score dimensions">
+              <div class="section-heading">
+                <p class="kicker">Structure Scores</p>
+                <h3>What your prompt already gives the model</h3>
+              </div>
+              <div class="dimension-list">
+                <div class="dimension-row">
+                  <span>Who</span>
+                  <div class="bar"><i style="width: 84%"></i></div>
+                  <strong>84</strong>
+                </div>
+                <div class="dimension-row">
+                  <span>Task</span>
+                  <div class="bar"><i style="width: 88%"></i></div>
+                  <strong>88</strong>
+                </div>
+                <div class="dimension-row">
+                  <span>Context</span>
+                  <div class="bar"><i style="width: 64%"></i></div>
+                  <strong>64</strong>
+                </div>
+                <div class="dimension-row">
+                  <span>Output</span>
+                  <div class="bar"><i style="width: 75%"></i></div>
+                  <strong>75</strong>
+                </div>
+              </div>
+            </section>
+
+            <aside class="personalization-panel">
+              <p class="kicker">Personalization Matters</p>
+              <h3>Structure helps. Fit changes performance.</h3>
+              <p>
+                Good structure is like being book smart. True performance comes from developing
+                personalized talent.
+              </p>
+              <p class="stat-callout">
+                Depending on the task, personalization can contribute up to
+                <strong>72.6%</strong> of result quality.
+              </p>
+              <div class="cta-row">
+                <button class="secondary-button" type="button">Take the CQI</button>
+                <button class="secondary-button" type="button">Try HermanPrompt</button>
+              </div>
+            </aside>
+          </div>
+
+          <div class="next-step-band">
+            <div>
+              <p class="kicker">Unlocked Benefit</p>
+              <h3>Use the coach to sharpen this prompt.</h3>
+            </div>
+            <button class="primary-button" type="button" id="open-coach">Open Prompt Coach</button>
+          </div>
+        </section>
+
+        <section class="screen hidden" data-screen="coach" id="coach">
+          <div class="coach-header">
+            <div>
+              <p class="kicker">Prompt Coach</p>
+              <h2>Improve structure. Notice where personalization begins.</h2>
+              <p>
+                This prototype coaches the prompt structure. Full Herman personalization starts with the CQI.
+              </p>
+            </div>
+            <button class="secondary-button" type="button" id="back-results">Back to Results</button>
+          </div>
+
+          <div class="coach-layout">
+            <section class="workspace-panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="kicker">Working Draft</p>
+                  <h3>Your improved prompt</h3>
+                </div>
+                <span class="status-pill">Draft v2</span>
+              </div>
+              <textarea id="draft-input">Who: You are a practical AI productivity coach.
+Task: Help me improve a prompt so it produces a useful, trustworthy response.
+Context: I want to use the answer at work and need guidance that is specific enough to act on.
+Output: Return a concise revised prompt, then explain the two most important changes.</textarea>
+              <div class="coach-actions">
+                <button class="secondary-button" type="button">Rescore Draft</button>
+                <button class="primary-button" type="button" id="copy-prompt">Copy Final Prompt</button>
+              </div>
+            </section>
+
+            <aside class="coach-side">
+              <section class="question-panel">
+                <p class="kicker">Next Coaching Question</p>
+                <h3>Add stronger context</h3>
+                <p>
+                  What specific situation, audience, constraint, or decision should the model keep in mind?
+                </p>
+                <label class="sr-only" for="coach-answer">Answer coaching question</label>
+                <input id="coach-answer" type="text" placeholder="Example: This is for a sales leader preparing Q3 planning." />
+                <button class="primary-button full" type="button">Apply Answer</button>
+              </section>
+
+              <section class="teaser-card">
+                <p class="kicker">Beyond Structure</p>
+                <h3>Personalize this prompt to unlock better LLM results.</h3>
+                <p>
+                  A strong prompt tells the model what to do. A personalized prompt helps the model
+                  communicate in a way you can act on.
+                </p>
+                <button class="secondary-button full" type="button">Take the CQI</button>
+              </section>
+            </aside>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite">Copied prompt to clipboard</div>
+    <script src="/app.js"></script>
+  </body>
+</html>
