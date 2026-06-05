@@ -5,19 +5,39 @@ const promptInput = document.querySelector("#prompt-input");
 const charCount = document.querySelector("#char-count");
 const backResultsButton = document.querySelector("#back-results");
 const copyPromptButton = document.querySelector("#copy-prompt");
+const rescoreDraftButton = document.querySelector("#rescore-draft");
 const draftInput = document.querySelector("#draft-input");
 const toast = document.querySelector("#toast");
+const scoreScreen = document.querySelector('[data-screen="score"]');
+const coachScreen = document.querySelector('[data-screen="coach"]');
+const scoreHero = document.querySelector(".score-hero");
+const scoreDimensionPanel = document.querySelector(".score-right .dimension-panel");
+const coachScorePanel = document.querySelector(".coach-score-panel");
+const firstNameInput = document.querySelector("#first-name-input");
+const lastNameInput = document.querySelector("#last-name-input");
+const emailInput = document.querySelector("#email-input");
+const coachSuggestionTitle = document.querySelector("#coach-suggestion-title");
+const coachSuggestionBody = document.querySelector("#coach-suggestion-body");
+const coachSuggestionOutput = document.querySelector("#coach-suggestion-output");
+const coachTotalScore = document.querySelector("#coach-total-score");
+const weeklyLeaderMessage = document.querySelector("#weekly-leader-message");
+const duplicateEntryNotice = document.querySelector("#duplicate-entry-notice");
+const duplicateCoachLink = document.querySelector("#duplicate-coach-link");
+const cqiLink = document.querySelector("#cqi-link");
 
 const demoToken = "hsc-7f4a9d2b81";
+let currentPromptText = promptInput.value.trim();
+let currentScore = null;
 
 function showScreen(name, options = {}) {
   screens.forEach((screen) => {
     screen.classList.toggle("hidden", screen.dataset.screen !== name);
   });
 
-  if (name === "coach") {
-    history.pushState({ screen: "coach" }, "", `/u/${demoToken}`);
-  } else if (name === "score") {
+  if (name === "coach" && !options.skipHistory) {
+    const coachUrl = options.coachUrl || `/u/${demoToken}`;
+    history.pushState({ screen: "coach" }, "", coachUrl);
+  } else if (name === "score" && !options.skipHistory) {
     history.pushState({ screen: "score" }, "", `/#score`);
   }
 
@@ -36,10 +56,147 @@ function showToast(message) {
   window.setTimeout(() => toast.classList.remove("visible"), 1800);
 }
 
+async function apiFetch(path, options = {}) {
+  const response = await fetch(path, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+    ...options,
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.error || "Something went wrong");
+  }
+  return payload;
+}
+
+function setButtonLoading(button, label) {
+  const original = button.textContent;
+  button.textContent = label;
+  button.disabled = true;
+  return () => {
+    button.textContent = original;
+    button.disabled = false;
+  };
+}
+
+function applyScore(score) {
+  currentScore = score;
+  document.querySelector("#overall-score").textContent = String(score.overallScore);
+  if (coachTotalScore) {
+    coachTotalScore.textContent = String(score.overallScore);
+  }
+  if (scoreHero) {
+    const heading = scoreHero.querySelector("h2");
+    const body = scoreHero.querySelector("p:last-child");
+    if (heading) heading.textContent = score.headline;
+    if (body) body.textContent = score.feedbackSummary;
+  }
+  updateScorePanel(scoreDimensionPanel, score);
+  updateScorePanel(coachScorePanel, score);
+  applySuggestion(score.coachingSuggestion);
+}
+
+function applySuggestion(suggestion) {
+  if (!suggestion) return;
+  if (coachSuggestionTitle) {
+    coachSuggestionTitle.textContent = suggestion.title;
+  }
+  if (coachSuggestionBody) {
+    coachSuggestionBody.textContent = suggestion.body;
+  }
+  if (coachSuggestionOutput) {
+    coachSuggestionOutput.textContent = suggestion.example;
+  }
+}
+
+function showDuplicateEntryNotice(payload) {
+  if (!duplicateEntryNotice || !duplicateCoachLink || !payload.coachUrl) {
+    showToast(payload.message || "You already entered. We resent your coach link.");
+    return;
+  }
+
+  duplicateCoachLink.href = payload.coachUrl;
+  duplicateEntryNotice.classList.remove("hidden");
+  duplicateEntryNotice.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  showToast("You already entered. Your coach link is ready.");
+}
+
+function updateScorePanel(panel, score) {
+  if (!panel) return;
+  const rows = panel.querySelectorAll(".dimension-row");
+  const values = [score.whoScore, score.taskScore, score.contextScore, score.outputScore];
+  rows.forEach((row, index) => {
+    const value = values[index];
+    const bar = row.querySelector(".bar i");
+    const label = row.querySelector("strong");
+    if (bar) {
+      bar.style.width = `${value}%`;
+      bar.style.setProperty("--score-width", String(value));
+    }
+    if (label) label.textContent = String(value);
+  });
+}
+
+async function loadWeeklyLeader() {
+  if (!weeklyLeaderMessage) return;
+  try {
+    const payload = await apiFetch("/api/leaderboard/weekly");
+    if (payload.message) {
+      weeklyLeaderMessage.textContent = payload.message;
+    }
+  } catch {
+    weeklyLeaderMessage.textContent = "Jordan has the best score of 78/100 this week";
+  }
+}
+
+async function loadPublicConfig() {
+  if (!cqiLink) return;
+  try {
+    const payload = await apiFetch("/api/public-config");
+    if (payload.cqiLink) {
+      cqiLink.href = payload.cqiLink;
+    }
+  } catch {
+    cqiLink.href = "https://hermanscience.com";
+  }
+}
+
+function tokenFromPath() {
+  if (!window.location.pathname.startsWith("/u/")) {
+    return "";
+  }
+  return decodeURIComponent(window.location.pathname.slice(3));
+}
+
+async function loadCoachSession() {
+  const token = tokenFromPath();
+  if (!token || token === demoToken) {
+    return;
+  }
+  try {
+    const payload = await apiFetch(`/api/coach/session?token=${encodeURIComponent(token)}`);
+    if (payload.coachSession?.currentPrompt) {
+      draftInput.value = payload.coachSession.currentPrompt;
+    }
+    if (payload.score) {
+      applyScore(payload.score);
+    }
+    if (payload.sharingNotice) {
+      showToast("This personal coach link may be shared. Get your own link from the challenge page.");
+    }
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
 promptInput.addEventListener("input", updateCount);
 updateCount();
+loadWeeklyLeader();
+loadPublicConfig();
 
-promptForm.addEventListener("submit", (event) => {
+promptForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const prompt = promptInput.value.trim();
   if (prompt.length < 20) {
@@ -47,12 +204,56 @@ promptForm.addEventListener("submit", (event) => {
     promptInput.focus();
     return;
   }
-  showScreen("score");
+  const finishLoading = setButtonLoading(promptForm.querySelector("button"), "Scoring...");
+  try {
+    const payload = await apiFetch("/api/score-preview", {
+      method: "POST",
+      body: JSON.stringify({ promptText: prompt }),
+    });
+    currentPromptText = prompt;
+    applyScore(payload.score);
+    showScreen("score");
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    finishLoading();
+  }
 });
 
-contactForm.addEventListener("submit", (event) => {
+contactForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  showScreen("coach");
+  if (!currentPromptText) {
+    showToast("Score a prompt first");
+    showScreen("challenge");
+    return;
+  }
+  const finishLoading = setButtonLoading(contactForm.querySelector("button"), "Opening...");
+  try {
+    const payload = await apiFetch("/api/entries", {
+      method: "POST",
+      body: JSON.stringify({
+        firstName: firstNameInput.value,
+        lastName: lastNameInput.value,
+        email: emailInput.value,
+        promptText: currentPromptText,
+        score: currentScore,
+        contestAgreement: contactForm.querySelector('input[type="checkbox"]').checked,
+      }),
+    });
+    if (!payload.coachUrl) {
+      showToast(payload.message || "We will resend your existing coach link.");
+      return;
+    }
+    if (payload.alreadyEntered) {
+      showDuplicateEntryNotice(payload);
+      return;
+    }
+    window.location.assign(payload.coachUrl);
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    finishLoading();
+  }
 });
 
 if (backResultsButton) {
@@ -70,6 +271,41 @@ copyPromptButton.addEventListener("click", async () => {
   }
 });
 
+rescoreDraftButton.addEventListener("click", async () => {
+  const token = tokenFromPath();
+  const currentPrompt = draftInput.value.trim();
+  if (!token || token === demoToken) {
+    showToast("Open your personal coach link before rescoring");
+    return;
+  }
+  if (currentPrompt.length < 20) {
+    showToast("Add a little more prompt detail first");
+    draftInput.focus();
+    return;
+  }
+  const finishLoading = setButtonLoading(rescoreDraftButton, "Rescoring...");
+  try {
+    const payload = await apiFetch("/api/coach/rescore", {
+      method: "POST",
+      body: JSON.stringify({
+        token,
+        currentPrompt,
+      }),
+    });
+    if (payload.coachSession?.currentPrompt) {
+      draftInput.value = payload.coachSession.currentPrompt;
+    }
+    if (payload.score) {
+      applyScore(payload.score);
+    }
+    showToast("Draft rescored");
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    finishLoading();
+  }
+});
+
 document.querySelectorAll("[data-jump]").forEach((button) => {
   button.addEventListener("click", () => {
     const target = button.dataset.jump;
@@ -84,16 +320,18 @@ document.querySelectorAll("[data-jump]").forEach((button) => {
 
 window.addEventListener("popstate", () => {
   if (window.location.pathname.startsWith("/u/")) {
-    showScreen("coach", { skipScroll: true });
+    showScreen("coach", { skipScroll: true, skipHistory: true });
+    loadCoachSession();
   } else if (window.location.hash === "#score") {
-    showScreen("score", { skipScroll: true });
+    showScreen("score", { skipScroll: true, skipHistory: true });
   } else {
     showScreen("challenge", { skipScroll: true });
   }
 });
 
 if (window.location.pathname.startsWith("/u/")) {
-  showScreen("coach", { skipScroll: true });
+  showScreen("coach", { skipScroll: true, skipHistory: true });
+  loadCoachSession();
 } else if (window.location.hash === "#score") {
   showScreen("score");
 }

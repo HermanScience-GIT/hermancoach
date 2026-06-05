@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>HermanCoach Admin</title>
+    <link rel="icon" href="/assets/favicon.jpg" />
+    <link rel="stylesheet" href="/admin.css" />
+  </head>
+  <body>
+    <main class="admin-shell">
+      <header class="admin-header">
+        <img src="/assets/logo.png" alt="HermanScience" />
+        <div>
+          <p class="eyebrow">HermanCoach</p>
+          <h1>Contest Admin</h1>
+        </div>
+        <button class="ghost-button" id="logout-button" type="button" hidden>Log out</button>
+      </header>
+
+      <section class="admin-card auth-card" id="login-card">
+        <p class="eyebrow">Admin Access</p>
+        <h2>Sign in</h2>
+        <form id="login-form" class="admin-form">
+          <label>
+            Admin email
+            <input id="admin-email" type="email" autocomplete="email" required />
+          </label>
+          <label>
+            Password
+            <input id="admin-password" type="password" autocomplete="current-password" required />
+          </label>
+          <button type="submit">Send Code</button>
+        </form>
+      </section>
+
+      <section class="admin-card auth-card" id="code-card" hidden>
+        <p class="eyebrow">Verification</p>
+        <h2>Enter emailed code</h2>
+        <form id="code-form" class="admin-form">
+          <label>
+            Six digit code
+            <input id="admin-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required />
+          </label>
+          <button type="submit">Open Admin</button>
+        </form>
+      </section>
+
+      <section id="admin-app" hidden>
+        <section class="toolbar admin-card">
+          <div>
+            <p class="eyebrow">Drawing Period</p>
+            <h2>Entries</h2>
+          </div>
+          <form id="period-form" class="period-form">
+            <label>
+              Start
+              <input id="start-date" type="date" />
+            </label>
+            <label>
+              End
+              <input id="end-date" type="date" />
+            </label>
+            <button type="submit">Apply</button>
+            <a class="ghost-link" id="download-link" href="/api/admin/entries.csv">Download CSV</a>
+          </form>
+        </section>
+
+        <section class="stats-grid" aria-label="Contest stats">
+          <article class="stat-card">
+            <span>Total</span>
+            <strong id="stat-total">0</strong>
+          </article>
+          <article class="stat-card">
+            <span>Confirmed</span>
+            <strong id="stat-confirmed">0</strong>
+          </article>
+          <article class="stat-card">
+            <span>Eligible</span>
+            <strong id="stat-eligible">0</strong>
+          </article>
+          <article class="stat-card">
+            <span>Winners</span>
+            <strong id="stat-winners">0</strong>
+          </article>
+        </section>
+
+        <section class="admin-card draw-card">
+          <div>
+            <p class="eyebrow">Weekly Prize</p>
+            <h2>Random Winner</h2>
+            <p id="winner-output">Draw from confirmed, eligible entries that have not already won.</p>
+          </div>
+          <button id="draw-button" type="button">Pick Random Winner</button>
+        </section>
+
+        <section class="entries-list" id="entries-list" aria-live="polite"></section>
+      </section>
+
+      <p class="status-line" id="status-line" role="status"></p>
+    </main>
+
+    <script src="/admin.js" type="module"></script>
+  </body>
+</html>

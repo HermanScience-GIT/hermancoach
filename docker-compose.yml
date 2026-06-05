@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: herman-coach-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: herman_coach
+      POSTGRES_USER: herman_coach
+      POSTGRES_PASSWORD: herman_coach_dev
+    ports:
+      - "5437:5432"
+    volumes:
+      - herman_coach_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U herman_coach -d herman_coach"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  herman_coach_postgres:
