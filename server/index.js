@@ -169,10 +169,6 @@ app.post("/api/entries", async (request, response) => {
             orderBy: { createdAt: "asc" },
             take: 1,
           },
-          promptSubmissions: {
-            orderBy: { createdAt: "asc" },
-            take: 1,
-          },
         },
       });
 
@@ -192,28 +188,18 @@ app.post("/api/entries", async (request, response) => {
             },
           });
           coachUrl = `${publicBaseUrl}/u/${rawAccessToken}`;
-          const originalSubmission = existingContact.promptSubmissions[0];
-          if (originalSubmission) {
-            await tx.coachSession.create({
-              data: {
-                contactId: existingContact.id,
-                accessTokenId: accessToken.id,
-                currentPrompt: originalSubmission.promptText,
-                draftVersion: 1,
-                overallScore: originalSubmission.overallScore,
-                whoScore: originalSubmission.whoScore,
-                taskScore: originalSubmission.taskScore,
-                contextScore: originalSubmission.contextScore,
-                outputScore: originalSubmission.outputScore,
-              },
-            });
-          }
         } else {
           const existingRawToken = decryptValue(accessToken.tokenCiphertext);
           if (existingRawToken) {
             coachUrl = `${publicBaseUrl}/u/${existingRawToken}`;
           }
         }
+        await resetCoachSessionForDuplicateEntry(tx, {
+          contactId: existingContact.id,
+          accessTokenId: accessToken.id,
+          promptText,
+          score,
+        });
         if (!existingContact.emailConfirmedAt) {
           const confirmationToken = randomToken("hce");
           await tx.contact.update({
@@ -855,6 +841,38 @@ function adminSubmissionDto(submission) {
       email: submission.contact.email,
     },
   };
+}
+
+async function resetCoachSessionForDuplicateEntry(tx, { contactId, accessTokenId, promptText, score }) {
+  const existingSession = await tx.coachSession.findFirst({
+    where: { accessTokenId },
+    orderBy: { updatedAt: "desc" },
+  });
+  const data = {
+    currentPrompt: promptText,
+    draftVersion: 1,
+    overallScore: score.overallScore,
+    whoScore: score.whoScore,
+    taskScore: score.taskScore,
+    contextScore: score.contextScore,
+    outputScore: score.outputScore,
+  };
+
+  if (existingSession) {
+    await tx.coachSession.update({
+      where: { id: existingSession.id },
+      data,
+    });
+    return;
+  }
+
+  await tx.coachSession.create({
+    data: {
+      contactId,
+      accessTokenId,
+      ...data,
+    },
+  });
 }
 
 function toCsv(rows) {
