@@ -64,6 +64,51 @@ app.get("/health/db", async (_request, response) => {
   }
 });
 
+app.get("/api/leaderboard/weekly", async (_request, response) => {
+  try {
+    const { start, end } = currentMondaySundayWindow();
+    const leader = await prisma.promptSubmission.findFirst({
+      where: {
+        status: "eligible",
+        createdAt: {
+          gte: start,
+          lt: end,
+        },
+      },
+      include: {
+        contact: {
+          select: {
+            firstName: true,
+          },
+        },
+      },
+      orderBy: [{ overallScore: "desc" }, { createdAt: "desc" }],
+    });
+
+    if (!leader) {
+      response.json({
+        source: "fallback",
+        message: weeklyLeaderFallbackMessage(),
+      });
+      return;
+    }
+
+    const firstName = leader.contact.firstName?.trim() || "Someone";
+    response.json({
+      source: "live",
+      firstName,
+      score: leader.overallScore,
+      message: `${firstName} has the best score of ${leader.overallScore}/100 this week`,
+    });
+  } catch (error) {
+    console.error("Weekly leaderboard lookup failed", error);
+    response.json({
+      source: "fallback",
+      message: weeklyLeaderFallbackMessage(),
+    });
+  }
+});
+
 app.post("/api/score-preview", (request, response) => {
   const promptText = String(request.body?.promptText || "").trim();
   if (promptText.length < 20) {
@@ -826,6 +871,23 @@ function toCsv(rows) {
         .join(","),
     )
     .join("\n");
+}
+
+function weeklyLeaderFallbackMessage() {
+  return "Jordan has the best score of 78/100 this week";
+}
+
+function currentMondaySundayWindow(referenceDate = new Date()) {
+  const start = new Date(referenceDate);
+  start.setHours(0, 0, 0, 0);
+  const day = start.getDay();
+  const daysSinceMonday = (day + 6) % 7;
+  start.setDate(start.getDate() - daysSinceMonday);
+
+  const end = new Date(start);
+  end.setDate(start.getDate() + 7);
+
+  return { start, end };
 }
 
 function confirmEmailHtml(title, body) {

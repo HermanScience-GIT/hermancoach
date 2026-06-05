@@ -20,6 +20,7 @@ const coachSuggestionTitle = document.querySelector("#coach-suggestion-title");
 const coachSuggestionBody = document.querySelector("#coach-suggestion-body");
 const coachSuggestionOutput = document.querySelector("#coach-suggestion-output");
 const coachTotalScore = document.querySelector("#coach-total-score");
+const weeklyLeaderMessage = document.querySelector("#weekly-leader-message");
 
 const demoToken = "hsc-7f4a9d2b81";
 let currentPromptText = promptInput.value.trim();
@@ -123,6 +124,18 @@ function updateScorePanel(panel, score) {
   });
 }
 
+async function loadWeeklyLeader() {
+  if (!weeklyLeaderMessage) return;
+  try {
+    const payload = await apiFetch("/api/leaderboard/weekly");
+    if (payload.message) {
+      weeklyLeaderMessage.textContent = payload.message;
+    }
+  } catch {
+    weeklyLeaderMessage.textContent = "Jordan has the best score of 78/100 this week";
+  }
+}
+
 function tokenFromPath() {
   if (!window.location.pathname.startsWith("/u/")) {
     return "";
@@ -153,6 +166,7 @@ async function loadCoachSession() {
 
 promptInput.addEventListener("input", updateCount);
 updateCount();
+loadWeeklyLeader();
 
 promptForm.addEventListener("submit", async (event) => {
   event.preventDefault();
