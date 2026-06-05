@@ -31,7 +31,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "..");
 const port = Number.parseInt(process.env.PORT || "8765", 10);
-const host = process.env.HOST || "127.0.0.1";
+const host = process.env.HOST || (process.env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1");
 
 const app = express();
 const publicBaseUrl = (process.env.PUBLIC_BASE_URL || `http://${host}:${port}`).replace(/\/$/, "");
