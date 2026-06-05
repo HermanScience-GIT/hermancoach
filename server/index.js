@@ -234,7 +234,7 @@ app.post("/api/entries", async (request, response) => {
           coachUrl,
           confirmationUrl,
           needsEmailResend: true,
-          message: "You are already entered. We will resend your existing coach link.",
+          message: "You already submitted a contest entry. We resent your personal coach link.",
         };
       }
 

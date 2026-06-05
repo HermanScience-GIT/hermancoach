@@ -45,9 +45,12 @@ export async function sendEmail({ to, subject, html, text }) {
 }
 
 export async function sendCoachLinkEmail({ to, firstName, coachUrl, confirmationUrl }) {
-  const greeting = firstName ? `Hi ${firstName},` : "Hi,";
+  const safeFirstName = escapeHtml(firstName || "");
+  const safeCoachUrl = escapeHtml(coachUrl);
+  const safeConfirmationUrl = confirmationUrl ? escapeHtml(confirmationUrl) : "";
+  const greeting = safeFirstName ? `Hi ${safeFirstName},` : "Hi,";
   const confirmationLine = confirmationUrl
-    ? `<p>Please confirm your email so your contest entry is eligible to win: <a href="${confirmationUrl}">${confirmationUrl}</a></p>`
+    ? `<p><a href="${safeConfirmationUrl}">Click this link to confirm your email</a> so your contest entry is eligible to win.</p>`
     : "";
   const confirmationText = confirmationUrl
     ? `\nConfirm your email so your contest entry is eligible to win: ${confirmationUrl}\n`
@@ -59,7 +62,7 @@ export async function sendCoachLinkEmail({ to, firstName, coachUrl, confirmation
     html: `
       <p>${greeting}</p>
       <p>Your personal HermanCoach link is ready:</p>
-      <p><a href="${coachUrl}">${coachUrl}</a></p>
+      <p><a href="${safeCoachUrl}">Click this link to open your personal coach</a></p>
       ${confirmationLine}
       <p>Keep this link handy. It opens your Prompt Structure Coach directly.</p>
     `,
@@ -70,6 +73,15 @@ ${coachUrl}
 ${confirmationText}
 Keep this link handy. It opens your Prompt Structure Coach directly.`,
   });
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 export async function sendAdminCodeEmail({ to, code }) {

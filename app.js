@@ -21,6 +21,8 @@ const coachSuggestionBody = document.querySelector("#coach-suggestion-body");
 const coachSuggestionOutput = document.querySelector("#coach-suggestion-output");
 const coachTotalScore = document.querySelector("#coach-total-score");
 const weeklyLeaderMessage = document.querySelector("#weekly-leader-message");
+const duplicateEntryNotice = document.querySelector("#duplicate-entry-notice");
+const duplicateCoachLink = document.querySelector("#duplicate-coach-link");
 
 const demoToken = "hsc-7f4a9d2b81";
 let currentPromptText = promptInput.value.trim();
@@ -106,6 +108,18 @@ function applySuggestion(suggestion) {
   if (coachSuggestionOutput) {
     coachSuggestionOutput.textContent = suggestion.example;
   }
+}
+
+function showDuplicateEntryNotice(payload) {
+  if (!duplicateEntryNotice || !duplicateCoachLink || !payload.coachUrl) {
+    showToast(payload.message || "You already entered. We resent your coach link.");
+    return;
+  }
+
+  duplicateCoachLink.href = payload.coachUrl;
+  duplicateEntryNotice.classList.remove("hidden");
+  duplicateEntryNotice.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  showToast("You already entered. Your coach link is ready.");
 }
 
 function updateScorePanel(panel, score) {
@@ -214,6 +228,10 @@ contactForm.addEventListener("submit", async (event) => {
     });
     if (!payload.coachUrl) {
       showToast(payload.message || "We will resend your existing coach link.");
+      return;
+    }
+    if (payload.alreadyEntered) {
+      showDuplicateEntryNotice(payload);
       return;
     }
     window.location.assign(payload.coachUrl);

@@ -101,10 +101,16 @@ button {
 }
 
 .primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 13px 18px;
   color: var(--white);
+  text-align: center;
+  text-decoration: none;
   background: linear-gradient(135deg, var(--accent), var(--brand));
   box-shadow: var(--shadow-glow);
+  cursor: pointer;
 }
 
 .secondary-button {
@@ -297,6 +303,26 @@ input:focus {
 
 .form-footer p,
 .muted {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.duplicate-entry-notice {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid rgba(78, 138, 217, 0.26);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, #f8faff, #eef5ff);
+}
+
+.duplicate-entry-notice h3,
+.duplicate-entry-notice p {
+  margin: 0;
+}
+
+.duplicate-entry-notice p:not(.kicker) {
   color: var(--muted);
   line-height: 1.45;
 }
