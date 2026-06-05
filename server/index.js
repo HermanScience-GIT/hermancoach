@@ -4,7 +4,17 @@ import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  clearAdminSessionCookie,
+  configuredAdminEmail,
+  createAdminCode,
+  createAdminSessionCookie,
+  hashAdminCode,
+  requireAdmin,
+  verifyAdminPassword,
+} from "./adminAuth.js";
 import { prisma } from "./db.js";
+import { sendAdminCodeEmail, sendCoachLinkEmail } from "./email.js";
 import { coachingSuggestionFor, scoreNarrative, scorePrompt } from "./scoring.js";
 import {
   clientIp,
@@ -115,6 +125,7 @@ app.post("/api/entries", async (request, response) => {
             take: 1,
           },
           promptSubmissions: {
+            orderBy: { createdAt: "asc" },
             take: 1,
           },
         },
@@ -123,6 +134,7 @@ app.post("/api/entries", async (request, response) => {
       if (existingContact) {
         let accessToken = existingContact.accessTokens[0];
         let coachUrl = null;
+        let confirmationUrl = null;
         if (!accessToken) {
           accessToken = await tx.accessToken.create({
             data: {
@@ -135,17 +147,47 @@ app.post("/api/entries", async (request, response) => {
             },
           });
           coachUrl = `${publicBaseUrl}/u/${rawAccessToken}`;
+          const originalSubmission = existingContact.promptSubmissions[0];
+          if (originalSubmission) {
+            await tx.coachSession.create({
+              data: {
+                contactId: existingContact.id,
+                accessTokenId: accessToken.id,
+                currentPrompt: originalSubmission.promptText,
+                draftVersion: 1,
+                overallScore: originalSubmission.overallScore,
+                whoScore: originalSubmission.whoScore,
+                taskScore: originalSubmission.taskScore,
+                contextScore: originalSubmission.contextScore,
+                outputScore: originalSubmission.outputScore,
+              },
+            });
+          }
         } else {
           const existingRawToken = decryptValue(accessToken.tokenCiphertext);
           if (existingRawToken) {
             coachUrl = `${publicBaseUrl}/u/${existingRawToken}`;
           }
         }
+        if (!existingContact.emailConfirmedAt) {
+          const confirmationToken = randomToken("hce");
+          await tx.contact.update({
+            where: { id: existingContact.id },
+            data: {
+              emailConfirmationTokenHash: hashToken(confirmationToken),
+              emailConfirmationSentAt: new Date(),
+            },
+          });
+          confirmationUrl = `${publicBaseUrl}/api/email/confirm?token=${confirmationToken}`;
+        }
 
         return {
           alreadyEntered: true,
           contactId: existingContact.id,
+          email,
+          firstName: existingContact.firstName,
           coachUrl,
+          confirmationUrl,
           needsEmailResend: true,
           message: "You are already entered. We will resend your existing coach link.",
         };
@@ -202,6 +244,8 @@ app.post("/api/entries", async (request, response) => {
       return {
         alreadyEntered: false,
         contactId: contact.id,
+        email,
+        firstName,
         submissionId: submission.id,
         coachUrl: `${publicBaseUrl}/u/${rawAccessToken}`,
         confirmationUrl: `${publicBaseUrl}/api/email/confirm?token=${rawConfirmationToken}`,
@@ -218,11 +262,249 @@ app.post("/api/entries", async (request, response) => {
       return;
     }
 
+    if (result.coachUrl) {
+      try {
+        await sendCoachLinkEmail({
+          to: result.email,
+          firstName: result.firstName,
+          coachUrl: result.coachUrl,
+          confirmationUrl: result.confirmationUrl,
+        });
+      } catch (error) {
+        console.error("Coach link email failed", error);
+      }
+    }
+
     response.json(result);
   } catch (error) {
     console.error("Entry creation failed", error);
     response.status(500).json({ error: "Unable to create entry right now." });
   }
+});
+
+app.get("/api/email/confirm", async (request, response) => {
+  const rawToken = String(request.query.token || "").trim();
+  if (!rawToken) {
+    response.status(400).send(confirmEmailHtml("Confirmation link missing", "This confirmation link is missing its token."));
+    return;
+  }
+
+  const contact = await prisma.contact.findUnique({
+    where: { emailConfirmationTokenHash: hashToken(rawToken) },
+  });
+  if (!contact) {
+    response
+      .status(404)
+      .send(confirmEmailHtml("Confirmation link not found", "This link may have expired or already been used."));
+    return;
+  }
+
+  await prisma.contact.update({
+    where: { id: contact.id },
+    data: {
+      emailConfirmedAt: contact.emailConfirmedAt || new Date(),
+      emailConfirmationTokenHash: null,
+    },
+  });
+
+  response.send(
+    confirmEmailHtml(
+      "Email confirmed",
+      "Your contest entry is now eligible for the weekly drawing. Your personal coach link is ready in your email.",
+    ),
+  );
+});
+
+app.post("/api/admin/login", async (request, response) => {
+  const email = normalizeEmail(request.body?.email);
+  const password = String(request.body?.password || "");
+  if (!verifyAdminPassword(email, password)) {
+    response.status(401).json({ error: "Invalid admin credentials." });
+    return;
+  }
+
+  const code = createAdminCode();
+  const ttlMinutes = Number.parseInt(process.env.ADMIN_CODE_TTL_MINUTES || "10", 10);
+  await prisma.adminLoginCode.create({
+    data: {
+      email,
+      codeHash: hashAdminCode(email, code),
+      expiresAt: new Date(Date.now() + ttlMinutes * 60 * 1000),
+    },
+  });
+
+  try {
+    await sendAdminCodeEmail({ to: email, code });
+  } catch (error) {
+    console.error("Admin code email failed", error);
+    response.status(500).json({ error: "Unable to send admin code." });
+    return;
+  }
+
+  response.json({ requiresCode: true, email });
+});
+
+app.post("/api/admin/verify", async (request, response) => {
+  const email = normalizeEmail(request.body?.email);
+  const code = String(request.body?.code || "").trim();
+  if (!email || !code) {
+    response.status(400).json({ error: "Email and code are required." });
+    return;
+  }
+
+  const loginCode = await prisma.adminLoginCode.findFirst({
+    where: {
+      email,
+      codeHash: hashAdminCode(email, code),
+      usedAt: null,
+      expiresAt: { gt: new Date() },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+  if (!loginCode || email !== configuredAdminEmail()) {
+    response.status(401).json({ error: "Invalid or expired code." });
+    return;
+  }
+
+  await prisma.adminLoginCode.update({
+    where: { id: loginCode.id },
+    data: { usedAt: new Date() },
+  });
+  response.setHeader("Set-Cookie", createAdminSessionCookie(email));
+  response.json({ ok: true, email });
+});
+
+app.post("/api/admin/logout", requireAdmin, (_request, response) => {
+  response.setHeader("Set-Cookie", clearAdminSessionCookie());
+  response.json({ ok: true });
+});
+
+app.get("/api/admin/me", requireAdmin, (request, response) => {
+  response.json({ email: request.admin.email });
+});
+
+app.get("/api/admin/entries", requireAdmin, async (request, response) => {
+  const period = parseAdminPeriod(request.query);
+  const submissions = await loadAdminSubmissions(period);
+  response.json({
+    period,
+    stats: adminStats(submissions),
+    entries: submissions.map(adminSubmissionDto),
+  });
+});
+
+app.get("/api/admin/entries.csv", requireAdmin, async (request, response) => {
+  const period = parseAdminPeriod(request.query);
+  const submissions = await loadAdminSubmissions(period);
+  const csv = toCsv([
+    [
+      "created_at",
+      "first_name",
+      "last_name",
+      "email",
+      "email_confirmed",
+      "status",
+      "overall_score",
+      "who_score",
+      "task_score",
+      "context_score",
+      "output_score",
+      "winner_selected_at",
+      "prompt_text",
+      "disqualified_reason",
+    ],
+    ...submissions.map((submission) => [
+      submission.createdAt.toISOString(),
+      submission.contact.firstName,
+      submission.contact.lastName,
+      submission.contact.email,
+      submission.contact.emailConfirmedAt ? "yes" : "no",
+      submission.status,
+      submission.overallScore,
+      submission.whoScore,
+      submission.taskScore,
+      submission.contextScore,
+      submission.outputScore,
+      submission.contestWinners[0]?.selectedAt?.toISOString() || "",
+      submission.promptText,
+      submission.disqualifiedReason || "",
+    ]),
+  ]);
+  response.setHeader("Content-Type", "text/csv; charset=utf-8");
+  response.setHeader("Content-Disposition", `attachment; filename="hermancoach-entries.csv"`);
+  response.send(csv);
+});
+
+app.patch("/api/admin/submissions/:id", requireAdmin, async (request, response) => {
+  const submissionId = String(request.params.id || "");
+  const status = String(request.body?.status || "");
+  const reason = String(request.body?.reason || "").trim();
+  if (!["eligible", "disqualified"].includes(status)) {
+    response.status(400).json({ error: "Status must be eligible or disqualified." });
+    return;
+  }
+
+  const submission = await prisma.promptSubmission.update({
+    where: { id: submissionId },
+    data: {
+      status,
+      disqualifiedReason: status === "disqualified" ? reason || "Admin disqualified" : null,
+      reviewedAt: new Date(),
+      reviewedBy: request.admin.email,
+    },
+    include: adminSubmissionInclude,
+  });
+  response.json({ entry: adminSubmissionDto(submission) });
+});
+
+app.post("/api/admin/draw-winner", requireAdmin, async (request, response) => {
+  const period = parseAdminPeriod(request.body || {});
+  const eligibleSubmissions = await prisma.promptSubmission.findMany({
+    where: {
+      ...periodWhere(period),
+      status: "eligible",
+      contact: {
+        emailConfirmedAt: { not: null },
+        contestWinners: { none: {} },
+      },
+      contestWinners: { none: {} },
+    },
+    include: adminSubmissionInclude,
+  });
+  if (eligibleSubmissions.length === 0) {
+    response.status(409).json({ error: "No eligible entries found for this drawing period." });
+    return;
+  }
+
+  const selectedSubmission = eligibleSubmissions[Math.floor(Math.random() * eligibleSubmissions.length)];
+  const winner = await prisma.contestWinner.create({
+    data: {
+      contactId: selectedSubmission.contactId,
+      promptSubmissionId: selectedSubmission.id,
+      selectedBy: request.admin.email,
+      prizeLabel: "weekly prize",
+      notes: period.label,
+    },
+    include: {
+      contact: true,
+      promptSubmission: true,
+    },
+  });
+  response.json({
+    winner: {
+      id: winner.id,
+      selectedAt: winner.selectedAt,
+      prizeLabel: winner.prizeLabel,
+      contact: {
+        firstName: winner.contact.firstName,
+        lastName: winner.contact.lastName,
+        email: winner.contact.email,
+      },
+      score: winner.promptSubmission.overallScore,
+      promptText: winner.promptSubmission.promptText,
+    },
+    eligibleCount: eligibleSubmissions.length,
+  });
 });
 
 app.get("/api/coach/session", async (request, response) => {
@@ -395,8 +677,12 @@ app.post("/api/coach/rescore", async (request, response) => {
 
 app.use("/assets", express.static(path.join(rootDir, "assets"), { index: false }));
 
-app.get(["/app.js", "/styles.css"], (request, response) => {
+app.get(["/app.js", "/styles.css", "/admin.js", "/admin.css"], (request, response) => {
   response.sendFile(path.join(rootDir, request.path));
+});
+
+app.get("/admin", (_request, response) => {
+  response.sendFile(path.join(rootDir, "admin.html"));
 });
 
 app.get(["/", "/u/:token"], (_request, response) => {
@@ -426,4 +712,142 @@ function weakestDimensionFromScores(session) {
     ["context", session.contextScore],
     ["output", session.outputScore],
   ].sort((a, b) => a[1] - b[1])[0][0];
+}
+
+const adminSubmissionInclude = {
+  contact: {
+    include: {
+      contestWinners: true,
+    },
+  },
+  contestWinners: true,
+};
+
+function parseAdminPeriod(source) {
+  const start = parseDateValue(source.startDate);
+  const end = parseDateValue(source.endDate, true);
+  const label = start || end ? `${start?.toISOString() || "beginning"} to ${end?.toISOString() || "now"}` : "all time";
+  return {
+    startDate: start ? start.toISOString().slice(0, 10) : "",
+    endDate: end ? end.toISOString().slice(0, 10) : "",
+    label,
+  };
+}
+
+function parseDateValue(value, endOfDay = false) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return null;
+  }
+  const date = new Date(`${raw}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}`);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date;
+}
+
+function periodWhere(period) {
+  const createdAt = {};
+  if (period.startDate) {
+    createdAt.gte = parseDateValue(period.startDate);
+  }
+  if (period.endDate) {
+    createdAt.lte = parseDateValue(period.endDate, true);
+  }
+  return Object.keys(createdAt).length ? { createdAt } : {};
+}
+
+async function loadAdminSubmissions(period) {
+  return prisma.promptSubmission.findMany({
+    where: periodWhere(period),
+    include: adminSubmissionInclude,
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+function adminStats(submissions) {
+  const confirmed = submissions.filter((submission) => submission.contact.emailConfirmedAt).length;
+  const eligible = submissions.filter(
+    (submission) =>
+      submission.status === "eligible" &&
+      submission.contact.emailConfirmedAt &&
+      submission.contact.contestWinners.length === 0 &&
+      submission.contestWinners.length === 0,
+  ).length;
+  return {
+    total: submissions.length,
+    confirmed,
+    eligible,
+    disqualified: submissions.filter((submission) => submission.status === "disqualified").length,
+    winners: submissions.filter((submission) => submission.contestWinners.length > 0).length,
+  };
+}
+
+function adminSubmissionDto(submission) {
+  return {
+    id: submission.id,
+    createdAt: submission.createdAt,
+    promptText: submission.promptText,
+    overallScore: submission.overallScore,
+    whoScore: submission.whoScore,
+    taskScore: submission.taskScore,
+    contextScore: submission.contextScore,
+    outputScore: submission.outputScore,
+    status: submission.status,
+    disqualifiedReason: submission.disqualifiedReason,
+    reviewedAt: submission.reviewedAt,
+    reviewedBy: submission.reviewedBy,
+    emailConfirmed: Boolean(submission.contact.emailConfirmedAt),
+    winnerSelectedAt: submission.contestWinners[0]?.selectedAt || null,
+    canWin:
+      submission.status === "eligible" &&
+      Boolean(submission.contact.emailConfirmedAt) &&
+      submission.contact.contestWinners.length === 0 &&
+      submission.contestWinners.length === 0,
+    contact: {
+      firstName: submission.contact.firstName,
+      lastName: submission.contact.lastName,
+      email: submission.contact.email,
+    },
+  };
+}
+
+function toCsv(rows) {
+  return rows
+    .map((row) =>
+      row
+        .map((value) => {
+          const cell = String(value ?? "");
+          if (/[",\n\r]/.test(cell)) {
+            return `"${cell.replaceAll('"', '""')}"`;
+          }
+          return cell;
+        })
+        .join(","),
+    )
+    .join("\n");
+}
+
+function confirmEmailHtml(title, body) {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${title}</title>
+    <style>
+      body { margin: 0; font-family: Arial, sans-serif; background: #f6f9fc; color: #111a35; }
+      main { max-width: 560px; margin: 12vh auto; padding: 32px; background: white; border: 1px solid #dce7f7; border-radius: 18px; }
+      h1 { margin: 0 0 12px; }
+      a { color: #13b5de; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>${title}</h1>
+      <p>${body}</p>
+      <p><a href="/">Return to HermanCoach</a></p>
+    </main>
+  </body>
+</html>`;
 }

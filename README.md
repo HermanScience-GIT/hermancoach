@@ -64,6 +64,20 @@ Personalized coach route example:
 http://127.0.0.1:8765/u/hsc-7f4a9d2b81
 ```
 
+Admin route:
+
+```text
+http://127.0.0.1:8765/admin
+```
+
+The admin login uses `ADMIN_EMAIL` plus a SHA-256 password hash in `ADMIN_PASSWORD_HASH`, then sends a one-time code by email. Generate a local hash with:
+
+```bash
+node -e "const crypto=require('crypto'); console.log(crypto.createHash('sha256').update(process.argv[1]).digest('hex'))" "your-password"
+```
+
+If Resend is not configured locally, email payloads are logged to the terminal for development.
+
 ## Prototype API
 
 Score a prompt:
@@ -78,10 +92,27 @@ Create or reuse a contest entry:
 POST /api/entries
 ```
 
+Confirm an entry email:
+
+```text
+GET /api/email/confirm?token=hce-...
+```
+
 Load a personalized coach session:
 
 ```text
 GET /api/coach/session?token=hsc-...
+```
+
+Admin APIs:
+
+```text
+POST /api/admin/login
+POST /api/admin/verify
+GET /api/admin/entries
+GET /api/admin/entries.csv
+PATCH /api/admin/submissions/:id
+POST /api/admin/draw-winner
 ```
 
 ## Railway
