@@ -35,6 +35,7 @@ const host = process.env.HOST || (process.env.NODE_ENV === "production" ? "0.0.0
 
 const app = express();
 const publicBaseUrl = (process.env.PUBLIC_BASE_URL || `http://${host}:${port}`).replace(/\/$/, "");
+const cqiLink = process.env.CQI_LINK || "https://hermanscience.com";
 
 app.disable("x-powered-by");
 app.use(express.json({ limit: "64kb" }));
@@ -62,6 +63,12 @@ app.get("/health/db", async (_request, response) => {
       database: "unreachable",
     });
   }
+});
+
+app.get("/api/public-config", (_request, response) => {
+  response.json({
+    cqiLink,
+  });
 });
 
 app.get("/api/leaderboard/weekly", async (_request, response) => {

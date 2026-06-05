@@ -23,6 +23,7 @@ const coachTotalScore = document.querySelector("#coach-total-score");
 const weeklyLeaderMessage = document.querySelector("#weekly-leader-message");
 const duplicateEntryNotice = document.querySelector("#duplicate-entry-notice");
 const duplicateCoachLink = document.querySelector("#duplicate-coach-link");
+const cqiLink = document.querySelector("#cqi-link");
 
 const demoToken = "hsc-7f4a9d2b81";
 let currentPromptText = promptInput.value.trim();
@@ -150,6 +151,18 @@ async function loadWeeklyLeader() {
   }
 }
 
+async function loadPublicConfig() {
+  if (!cqiLink) return;
+  try {
+    const payload = await apiFetch("/api/public-config");
+    if (payload.cqiLink) {
+      cqiLink.href = payload.cqiLink;
+    }
+  } catch {
+    cqiLink.href = "https://hermanscience.com";
+  }
+}
+
 function tokenFromPath() {
   if (!window.location.pathname.startsWith("/u/")) {
     return "";
@@ -181,6 +194,7 @@ async function loadCoachSession() {
 promptInput.addEventListener("input", updateCount);
 updateCount();
 loadWeeklyLeader();
+loadPublicConfig();
 
 promptForm.addEventListener("submit", async (event) => {
   event.preventDefault();

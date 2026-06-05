@@ -58,6 +58,8 @@ Database health check:
 http://127.0.0.1:8765/health/db
 ```
 
+Set `CQI_LINK` to control the destination of the coach screen's "Take the CQI" button.
+
 Personalized coach route example:
 
 ```text

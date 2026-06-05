@@ -92,25 +92,25 @@ button {
 
 .secondary-button,
 .primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 46px;
   border: 0;
   border-radius: 999px;
   font-weight: 800;
   letter-spacing: 0;
+  text-align: center;
+  text-decoration: none;
   transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  cursor: pointer;
 }
 
 .primary-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   padding: 13px 18px;
   color: var(--white);
-  text-align: center;
-  text-decoration: none;
   background: linear-gradient(135deg, var(--accent), var(--brand));
   box-shadow: var(--shadow-glow);
-  cursor: pointer;
 }
 
 .secondary-button {
