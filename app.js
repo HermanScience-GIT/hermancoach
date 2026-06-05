@@ -19,6 +19,7 @@ const emailInput = document.querySelector("#email-input");
 const coachSuggestionTitle = document.querySelector("#coach-suggestion-title");
 const coachSuggestionBody = document.querySelector("#coach-suggestion-body");
 const coachSuggestionOutput = document.querySelector("#coach-suggestion-output");
+const coachTotalScore = document.querySelector("#coach-total-score");
 
 const demoToken = "hsc-7f4a9d2b81";
 let currentPromptText = promptInput.value.trim();
@@ -79,6 +80,9 @@ function setButtonLoading(button, label) {
 function applyScore(score) {
   currentScore = score;
   document.querySelector("#overall-score").textContent = String(score.overallScore);
+  if (coachTotalScore) {
+    coachTotalScore.textContent = String(score.overallScore);
+  }
   if (scoreHero) {
     const heading = scoreHero.querySelector("h2");
     const body = scoreHero.querySelector("p:last-child");
