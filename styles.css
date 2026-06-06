@@ -50,6 +50,10 @@ button {
   cursor: pointer;
 }
 
+body.modal-open {
+  overflow: hidden;
+}
+
 .page-shell {
   width: min(100% - 20px, var(--max));
   margin: 0 auto;
@@ -305,6 +309,39 @@ input:focus {
 .muted {
   color: var(--muted);
   line-height: 1.45;
+}
+
+.prompt-context-line {
+  margin-bottom: 0;
+  color: #111a35;
+  font-weight: 800;
+}
+
+.context-link {
+  justify-self: start;
+  width: fit-content;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  color: var(--brand-dark);
+  background: transparent;
+  font-weight: 850;
+  line-height: 1.35;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+.context-link:hover {
+  color: #111a35;
+}
+
+.hero-context-link {
+  color: #9bd7e5;
+}
+
+.hero-context-link:hover {
+  color: var(--white);
 }
 
 .duplicate-entry-notice {
@@ -682,6 +719,80 @@ input {
 
 .toast.visible {
   transform: translateY(0);
+}
+
+.video-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+
+.video-modal.hidden {
+  display: none;
+}
+
+.video-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 13, 27, 0.74);
+  backdrop-filter: blur(8px);
+}
+
+.video-modal-panel {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 14px;
+  width: min(100%, 820px);
+  max-height: min(92vh, 760px);
+  overflow: auto;
+  padding: 18px;
+  border: 1px solid rgba(216, 230, 255, 0.5);
+  border-radius: var(--radius-xl);
+  background: var(--panel);
+  box-shadow: 0 24px 90px rgba(0, 0, 0, 0.34);
+}
+
+.video-modal-heading {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.video-modal-heading h2 {
+  margin-bottom: 0;
+}
+
+.modal-close-button {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(78, 138, 217, 0.24);
+  border-radius: 50%;
+  color: #111a35;
+  background: var(--soft);
+  font-size: 20px;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.video-modal video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-lg);
+  background: #10141f;
+}
+
+.video-modal-panel p {
+  margin-bottom: 0;
+  color: var(--muted);
+  line-height: 1.5;
 }
 
 .sr-only {
