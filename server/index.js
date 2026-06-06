@@ -32,6 +32,9 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "..");
 const port = Number.parseInt(process.env.PORT || "8765", 10);
 const host = process.env.HOST || (process.env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1");
+const promptMinLength = 20;
+const entryPromptMaxLength = 1200;
+const coachDraftMaxLength = 2000;
 
 const app = express();
 const publicBaseUrl = (process.env.PUBLIC_BASE_URL || `http://${host}:${port}`).replace(/\/$/, "");
@@ -118,13 +121,13 @@ app.get("/api/leaderboard/weekly", async (_request, response) => {
 
 app.post("/api/score-preview", (request, response) => {
   const promptText = String(request.body?.promptText || "").trim();
-  if (promptText.length < 20) {
+  if (promptText.length < promptMinLength) {
     response.status(400).json({
       error: "Prompt must be at least 20 characters.",
     });
     return;
   }
-  if (promptText.length > 1200) {
+  if (promptText.length > entryPromptMaxLength) {
     response.status(400).json({
       error: "Prompt must be 1,200 characters or fewer.",
     });
@@ -155,7 +158,7 @@ app.post("/api/entries", async (request, response) => {
     response.status(400).json({ error: "Contest agreement is required." });
     return;
   }
-  if (promptText.length < 20 || promptText.length > 1200) {
+  if (promptText.length < promptMinLength || promptText.length > entryPromptMaxLength) {
     response.status(400).json({ error: "Prompt must be between 20 and 1,200 characters." });
     return;
   }
@@ -660,8 +663,8 @@ app.post("/api/coach/rescore", async (request, response) => {
     response.status(400).json({ error: "Token is required." });
     return;
   }
-  if (currentPrompt.length < 20 || currentPrompt.length > 1200) {
-    response.status(400).json({ error: "Draft must be between 20 and 1,200 characters." });
+  if (currentPrompt.length < promptMinLength || currentPrompt.length > coachDraftMaxLength) {
+    response.status(400).json({ error: "Draft must be between 20 and 2,000 characters." });
     return;
   }
 

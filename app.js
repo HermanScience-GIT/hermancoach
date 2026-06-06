@@ -30,6 +30,7 @@ const contextVideoModal = document.querySelector("#context-video-modal");
 const contextVideo = document.querySelector("#context-video");
 
 const demoToken = "hsc-7f4a9d2b81";
+const coachDraftMaxLength = 2000;
 let currentPromptText = promptInput.value.trim();
 let currentScore = null;
 let previousFocusElement = null;
@@ -329,6 +330,11 @@ rescoreDraftButton.addEventListener("click", async () => {
   }
   if (currentPrompt.length < 20) {
     showToast("Add a little more prompt detail first");
+    draftInput.focus();
+    return;
+  }
+  if (currentPrompt.length > coachDraftMaxLength) {
+    showToast("Keep coach drafts under 2,000 characters");
     draftInput.focus();
     return;
   }
