@@ -7,6 +7,7 @@ const backResultsButton = document.querySelector("#back-results");
 const copyPromptButton = document.querySelector("#copy-prompt");
 const rescoreDraftButton = document.querySelector("#rescore-draft");
 const draftInput = document.querySelector("#draft-input");
+const draftCharCount = document.querySelector("#draft-char-count");
 const toast = document.querySelector("#toast");
 const scoreScreen = document.querySelector('[data-screen="score"]');
 const coachScreen = document.querySelector('[data-screen="coach"]');
@@ -54,6 +55,12 @@ function showScreen(name, options = {}) {
 
 function updateCount() {
   charCount.textContent = String(promptInput.value.length);
+}
+
+function updateDraftCount() {
+  if (draftCharCount) {
+    draftCharCount.textContent = String(draftInput.value.length);
+  }
 }
 
 function showToast(message) {
@@ -211,6 +218,7 @@ async function loadCoachSession() {
     const payload = await apiFetch(`/api/coach/session?token=${encodeURIComponent(token)}`);
     if (payload.coachSession?.currentPrompt) {
       draftInput.value = payload.coachSession.currentPrompt;
+      updateDraftCount();
     }
     if (payload.score) {
       applyScore(payload.score);
@@ -224,7 +232,9 @@ async function loadCoachSession() {
 }
 
 promptInput.addEventListener("input", updateCount);
+draftInput.addEventListener("input", updateDraftCount);
 updateCount();
+updateDraftCount();
 loadWeeklyLeader();
 loadPublicConfig();
 
@@ -349,6 +359,7 @@ rescoreDraftButton.addEventListener("click", async () => {
     });
     if (payload.coachSession?.currentPrompt) {
       draftInput.value = payload.coachSession.currentPrompt;
+      updateDraftCount();
     }
     if (payload.score) {
       applyScore(payload.score);

@@ -198,6 +198,13 @@ h3 {
   font-weight: 800;
 }
 
+.draft-heading-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: end;
+}
+
 .leader-strip {
   margin: 0 -1px 0;
   padding: 11px 12px;
