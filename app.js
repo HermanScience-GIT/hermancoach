@@ -24,10 +24,15 @@ const weeklyLeaderMessage = document.querySelector("#weekly-leader-message");
 const duplicateEntryNotice = document.querySelector("#duplicate-entry-notice");
 const duplicateCoachLink = document.querySelector("#duplicate-coach-link");
 const cqiLink = document.querySelector("#cqi-link");
+const openContextVideoButton = document.querySelector("#open-context-video");
+const closeContextVideoButton = document.querySelector("#close-context-video");
+const contextVideoModal = document.querySelector("#context-video-modal");
+const contextVideo = document.querySelector("#context-video");
 
 const demoToken = "hsc-7f4a9d2b81";
 let currentPromptText = promptInput.value.trim();
 let currentScore = null;
+let previousFocusElement = null;
 
 function showScreen(name, options = {}) {
   screens.forEach((screen) => {
@@ -54,6 +59,32 @@ function showToast(message) {
   toast.textContent = message;
   toast.classList.add("visible");
   window.setTimeout(() => toast.classList.remove("visible"), 1800);
+}
+
+function openContextVideo() {
+  if (!contextVideoModal) return;
+  previousFocusElement = document.activeElement;
+  contextVideoModal.classList.remove("hidden");
+  document.body.classList.add("modal-open");
+  closeContextVideoButton?.focus();
+  if (contextVideo) {
+    contextVideo.currentTime = 0;
+    contextVideo.play().catch(() => {
+      showToast("Press play to start the video");
+    });
+  }
+}
+
+function closeContextVideo() {
+  if (!contextVideoModal) return;
+  contextVideoModal.classList.add("hidden");
+  document.body.classList.remove("modal-open");
+  if (contextVideo) {
+    contextVideo.pause();
+  }
+  if (previousFocusElement) {
+    previousFocusElement.focus();
+  }
 }
 
 async function apiFetch(path, options = {}) {
@@ -195,6 +226,24 @@ promptInput.addEventListener("input", updateCount);
 updateCount();
 loadWeeklyLeader();
 loadPublicConfig();
+
+if (openContextVideoButton) {
+  openContextVideoButton.addEventListener("click", openContextVideo);
+}
+
+if (closeContextVideoButton) {
+  closeContextVideoButton.addEventListener("click", closeContextVideo);
+}
+
+document.querySelectorAll("[data-close-context-video]").forEach((element) => {
+  element.addEventListener("click", closeContextVideo);
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && contextVideoModal && !contextVideoModal.classList.contains("hidden")) {
+    closeContextVideo();
+  }
+});
 
 promptForm.addEventListener("submit", async (event) => {
   event.preventDefault();

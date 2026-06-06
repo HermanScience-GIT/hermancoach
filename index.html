@@ -31,6 +31,9 @@
                 strong it is, what's missing, and whether it has a shot at the weekly Prompt
                 Challenge leaderboard.
               </p>
+              <button class="context-link hero-context-link" type="button" id="open-context-video">
+                Why prompting matters
+              </button>
             </div>
           </div>
 
@@ -49,6 +52,7 @@
               placeholder="Enter the prompt you would give to ChatGPT, Claude, Gemini, Perplexity, or another LLM..."
             ></textarea>
             <div class="form-footer">
+              <p class="prompt-context-line">A strong prompt gives the model four things: role, task, context, and output format.</p>
               <p>No cheating. No copy/paste from AI. No confidential info. Just you, your prompt, and the score.</p>
               <button class="primary-button" type="submit">Score My Prompt</button>
             </div>
@@ -255,6 +259,27 @@ Output: Return a concise revised prompt, then explain the two most important cha
     </div>
 
     <div class="toast" id="toast" role="status" aria-live="polite">Copied prompt to clipboard</div>
+
+    <div class="video-modal hidden" id="context-video-modal" role="dialog" aria-modal="true" aria-labelledby="context-video-title">
+      <div class="video-modal-backdrop" data-close-context-video></div>
+      <section class="video-modal-panel">
+        <div class="video-modal-heading">
+          <div>
+            <p class="kicker">Prompting Basics</p>
+            <h2 id="context-video-title">Why prompting matters</h2>
+          </div>
+          <button class="modal-close-button" type="button" id="close-context-video" aria-label="Close video">x</button>
+        </div>
+        <video id="context-video" controls preload="metadata" playsinline autoplay>
+          <source src="assets/prompting-matters.mp4" type="video/mp4" />
+          Your browser does not support embedded video.
+        </video>
+        <p>
+          Better prompts give LLMs clearer instructions: who they should act as, what task to complete,
+          what context matters, and what kind of answer you need.
+        </p>
+      </section>
+    </div>
     <script src="app.js"></script>
   </body>
 </html>
