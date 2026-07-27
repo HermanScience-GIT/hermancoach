@@ -186,7 +186,7 @@ async function loadWeeklyLeader() {
       weeklyLeaderMessage.textContent = payload.message;
     }
   } catch {
-    weeklyLeaderMessage.textContent = "Jordan has the best score of 78/100 this week";
+    weeklyLeaderMessage.textContent = "Jordan has the best score of 35/100 this week";
   }
 }
 

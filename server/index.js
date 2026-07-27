@@ -902,7 +902,7 @@ function toCsv(rows) {
 }
 
 function weeklyLeaderFallbackMessage() {
-  return "Jordan has the best score of 78/100 this week";
+  return "Jordan has the best score of 35/100 this week";
 }
 
 function currentMondaySundayWindow(referenceDate = new Date()) {
