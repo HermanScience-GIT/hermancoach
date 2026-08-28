@@ -40,6 +40,7 @@ const host = process.env.HOST || (process.env.NODE_ENV === "production" ? "0.0.0
 const promptMinLength = 20;
 const entryPromptMaxLength = 1200;
 const coachDraftMaxLength = 2000;
+const demoCoachToken = "hsc-7f4a9d2b81";
 
 const app = express();
 const publicBaseUrl = (process.env.PUBLIC_BASE_URL || `http://${host}:${port}`).replace(/\/$/, "");
@@ -816,6 +817,18 @@ app.post("/api/coach/rescore", async (request, response) => {
   }
   if (currentPrompt.length < promptMinLength || currentPrompt.length > coachDraftMaxLength) {
     response.status(400).json({ error: "Draft must be between 20 and 2,000 characters." });
+    return;
+  }
+
+  if (rawToken === demoCoachToken) {
+    const score = scorePrompt(currentPrompt);
+    response.json({
+      demo: true,
+      coachSession: {
+        currentPrompt,
+      },
+      score,
+    });
     return;
   }
 

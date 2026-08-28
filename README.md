@@ -72,6 +72,14 @@ Admin route:
 http://127.0.0.1:8765/admin
 ```
 
+Interactive demonstration coach route:
+
+```text
+http://127.0.0.1:8765/u/hsc-7f4a9d2b81
+```
+
+The demonstration route bypasses contest entry and supports stateless rescoring. Drafts and scores are kept only in each visitor's browser session, so different viewers do not overwrite one another or create participant records.
+
 On the first multi-admin deployment, `ADMIN_EMAIL` and `ADMIN_PASSWORD_HASH` bootstrap the permanent super admin. After that, administrator accounts and salted password hashes are stored in PostgreSQL. Login also requires a one-time code sent by email. Generate the initial bootstrap hash with:
 
 ```bash

@@ -31,6 +31,7 @@ const contextVideoModal = document.querySelector("#context-video-modal");
 const contextVideo = document.querySelector("#context-video");
 
 const demoToken = "hsc-7f4a9d2b81";
+const demoCoachStateKey = `hermanCoachDemo:${demoToken}`;
 const coachDraftMaxLength = 2000;
 let currentPromptText = promptInput.value.trim();
 let currentScore = null;
@@ -211,7 +212,11 @@ function tokenFromPath() {
 
 async function loadCoachSession() {
   const token = tokenFromPath();
-  if (!token || token === demoToken) {
+  if (!token) {
+    return;
+  }
+  if (token === demoToken) {
+    loadDemoCoachState();
     return;
   }
   try {
@@ -228,6 +233,33 @@ async function loadCoachSession() {
     }
   } catch (error) {
     showToast(error.message);
+  }
+}
+
+function loadDemoCoachState() {
+  try {
+    const savedState = JSON.parse(window.sessionStorage.getItem(demoCoachStateKey) || "null");
+    if (savedState?.currentPrompt) {
+      draftInput.value = savedState.currentPrompt;
+      updateDraftCount();
+    }
+    if (savedState?.score) {
+      applyScore(savedState.score);
+    }
+  } catch {
+    try {
+      window.sessionStorage.removeItem(demoCoachStateKey);
+    } catch {
+      // Browser storage can be disabled; the demo still works without refresh persistence.
+    }
+  }
+}
+
+function saveDemoCoachState(currentPrompt, score) {
+  try {
+    window.sessionStorage.setItem(demoCoachStateKey, JSON.stringify({ currentPrompt, score }));
+  } catch {
+    // The demo still works when browser storage is unavailable; it simply resets on refresh.
   }
 }
 
@@ -334,7 +366,7 @@ copyPromptButton.addEventListener("click", async () => {
 rescoreDraftButton.addEventListener("click", async () => {
   const token = tokenFromPath();
   const currentPrompt = draftInput.value.trim();
-  if (!token || token === demoToken) {
+  if (!token) {
     showToast("Open your personal coach link before rescoring");
     return;
   }
@@ -363,6 +395,9 @@ rescoreDraftButton.addEventListener("click", async () => {
     }
     if (payload.score) {
       applyScore(payload.score);
+      if (token === demoToken) {
+        saveDemoCoachState(currentPrompt, payload.score);
+      }
     }
     showToast("Draft rescored");
   } catch (error) {
