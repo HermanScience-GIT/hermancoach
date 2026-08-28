@@ -72,13 +72,15 @@ Admin route:
 http://127.0.0.1:8765/admin
 ```
 
-The admin login uses `ADMIN_EMAIL` plus a SHA-256 password hash in `ADMIN_PASSWORD_HASH`, then sends a one-time code by email. Generate a local hash with:
+On the first multi-admin deployment, `ADMIN_EMAIL` and `ADMIN_PASSWORD_HASH` bootstrap the permanent super admin. After that, administrator accounts and salted password hashes are stored in PostgreSQL. Login also requires a one-time code sent by email. Generate the initial bootstrap hash with:
 
 ```bash
 node -e "const crypto=require('crypto'); console.log(crypto.createHash('sha256').update(process.argv[1]).digest('hex'))" "your-password"
 ```
 
 If Resend is not configured locally, email payloads are logged to the terminal for development.
+
+Super admins can add and remove administrators and grant or revoke super-admin access from the **Administrators** screen. New accounts receive a temporary password chosen by the super admin and must replace it after their first login. Every administrator can change only their own password and must supply their current password.
 
 ## Prototype API
 

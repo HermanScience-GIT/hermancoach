@@ -13,9 +13,12 @@
         <img src="/assets/logo.png" alt="HermanScience" />
         <div>
           <p class="eyebrow">HermanCoach</p>
-          <h1>Contest Admin</h1>
+          <h1>Admin Portal</h1>
         </div>
-        <button class="ghost-button" id="logout-button" type="button" hidden>Log out</button>
+        <div class="admin-session" id="admin-session" hidden>
+          <span id="admin-identity"></span>
+          <button class="ghost-button" id="logout-button" type="button">Log out</button>
+        </div>
       </header>
 
       <section class="admin-card auth-card" id="login-card">
@@ -47,54 +50,123 @@
       </section>
 
       <section id="admin-app" hidden>
-        <section class="toolbar admin-card">
-          <div>
-            <p class="eyebrow">Drawing Period</p>
-            <h2>Entries</h2>
+        <nav class="admin-tabs" aria-label="Admin sections">
+          <button class="admin-tab is-active" data-panel="contest-panel" type="button">Contest</button>
+          <button class="admin-tab" data-panel="admins-panel" type="button">Administrators</button>
+        </nav>
+
+        <section id="contest-panel">
+          <section class="toolbar admin-card">
+            <div>
+              <p class="eyebrow">Drawing Period</p>
+              <h2>Entries</h2>
+            </div>
+            <form id="period-form" class="period-form">
+              <label>
+                Start
+                <input id="start-date" type="date" />
+              </label>
+              <label>
+                End
+                <input id="end-date" type="date" />
+              </label>
+              <button type="submit">Apply</button>
+              <a class="ghost-link" id="download-link" href="/api/admin/entries.csv">Download CSV</a>
+            </form>
+          </section>
+
+          <section class="stats-grid" aria-label="Contest stats">
+            <article class="stat-card">
+              <span>Total</span>
+              <strong id="stat-total">0</strong>
+            </article>
+            <article class="stat-card">
+              <span>Confirmed</span>
+              <strong id="stat-confirmed">0</strong>
+            </article>
+            <article class="stat-card">
+              <span>Eligible</span>
+              <strong id="stat-eligible">0</strong>
+            </article>
+            <article class="stat-card">
+              <span>Winners</span>
+              <strong id="stat-winners">0</strong>
+            </article>
+          </section>
+
+          <section class="admin-card draw-card">
+            <div>
+              <p class="eyebrow">Weekly Prize</p>
+              <h2>Random Winner</h2>
+              <p id="winner-output">Draw from confirmed, eligible entries that have not already won.</p>
+            </div>
+            <button id="draw-button" type="button">Pick Random Winner</button>
+          </section>
+
+          <section class="entries-list" id="entries-list" aria-live="polite"></section>
+        </section>
+
+        <section id="admins-panel" hidden>
+          <div class="required-password-notice" id="required-password-notice" hidden>
+            You are using a temporary password. Change it below before continuing.
           </div>
-          <form id="period-form" class="period-form">
-            <label>
-              Start
-              <input id="start-date" type="date" />
-            </label>
-            <label>
-              End
-              <input id="end-date" type="date" />
-            </label>
-            <button type="submit">Apply</button>
-            <a class="ghost-link" id="download-link" href="/api/admin/entries.csv">Download CSV</a>
-          </form>
-        </section>
 
-        <section class="stats-grid" aria-label="Contest stats">
-          <article class="stat-card">
-            <span>Total</span>
-            <strong id="stat-total">0</strong>
-          </article>
-          <article class="stat-card">
-            <span>Confirmed</span>
-            <strong id="stat-confirmed">0</strong>
-          </article>
-          <article class="stat-card">
-            <span>Eligible</span>
-            <strong id="stat-eligible">0</strong>
-          </article>
-          <article class="stat-card">
-            <span>Winners</span>
-            <strong id="stat-winners">0</strong>
-          </article>
-        </section>
+          <section class="admin-card password-card">
+            <div>
+              <p class="eyebrow">Your Account</p>
+              <h2>Change Password</h2>
+              <p>For security, enter your current password before choosing a new one.</p>
+            </div>
+            <form id="change-password-form" class="admin-form compact-form">
+              <label>
+                Current password
+                <input id="current-password" type="password" autocomplete="current-password" required />
+              </label>
+              <label>
+                New password
+                <input id="new-password" type="password" autocomplete="new-password" minlength="12" required />
+              </label>
+              <label>
+                Confirm new password
+                <input id="confirm-password" type="password" autocomplete="new-password" minlength="12" required />
+              </label>
+              <button type="submit">Change Password</button>
+            </form>
+          </section>
 
-        <section class="admin-card draw-card">
-          <div>
-            <p class="eyebrow">Weekly Prize</p>
-            <h2>Random Winner</h2>
-            <p id="winner-output">Draw from confirmed, eligible entries that have not already won.</p>
-          </div>
-          <button id="draw-button" type="button">Pick Random Winner</button>
-        </section>
+          <section id="super-admin-tools" hidden>
+            <section class="admin-card add-admin-card">
+              <div>
+                <p class="eyebrow">Super Admin</p>
+                <h2>Add Administrator</h2>
+                <p>The new administrator must replace this temporary password after signing in.</p>
+              </div>
+              <form id="add-admin-form" class="admin-form compact-form">
+                <label>
+                  Email
+                  <input id="new-admin-email" type="email" autocomplete="off" required />
+                </label>
+                <label>
+                  Temporary password
+                  <input id="temporary-password" type="password" autocomplete="new-password" minlength="12" required />
+                </label>
+                <label class="checkbox-label">
+                  <input id="new-admin-super" type="checkbox" />
+                  Make this person a super admin
+                </label>
+                <button type="submit">Add Administrator</button>
+              </form>
+            </section>
 
-        <section class="entries-list" id="entries-list" aria-live="polite"></section>
+            <section class="admin-card admin-list-card">
+              <div>
+                <p class="eyebrow">Access Control</p>
+                <h2>Administrators</h2>
+              </div>
+              <div class="admin-list" id="admin-list" aria-live="polite"></div>
+            </section>
+          </section>
+        </section>
       </section>
 
       <p class="status-line" id="status-line" role="status"></p>

@@ -5,19 +5,36 @@ const loginForm = document.querySelector("#login-form");
 const codeForm = document.querySelector("#code-form");
 const periodForm = document.querySelector("#period-form");
 const logoutButton = document.querySelector("#logout-button");
+const adminSession = document.querySelector("#admin-session");
+const adminIdentity = document.querySelector("#admin-identity");
 const drawButton = document.querySelector("#draw-button");
 const downloadLink = document.querySelector("#download-link");
 const statusLine = document.querySelector("#status-line");
 const entriesList = document.querySelector("#entries-list");
 const winnerOutput = document.querySelector("#winner-output");
+const adminTabs = document.querySelector(".admin-tabs");
+const contestPanel = document.querySelector("#contest-panel");
+const adminsPanel = document.querySelector("#admins-panel");
+const requiredPasswordNotice = document.querySelector("#required-password-notice");
+const superAdminTools = document.querySelector("#super-admin-tools");
+const adminList = document.querySelector("#admin-list");
+const changePasswordForm = document.querySelector("#change-password-form");
+const addAdminForm = document.querySelector("#add-admin-form");
 
 const adminEmailInput = document.querySelector("#admin-email");
 const adminPasswordInput = document.querySelector("#admin-password");
 const adminCodeInput = document.querySelector("#admin-code");
 const startDateInput = document.querySelector("#start-date");
 const endDateInput = document.querySelector("#end-date");
+const currentPasswordInput = document.querySelector("#current-password");
+const newPasswordInput = document.querySelector("#new-password");
+const confirmPasswordInput = document.querySelector("#confirm-password");
+const newAdminEmailInput = document.querySelector("#new-admin-email");
+const temporaryPasswordInput = document.querySelector("#temporary-password");
+const newAdminSuperInput = document.querySelector("#new-admin-super");
 
 let pendingEmail = "";
+let currentAdmin = null;
 
 function setStatus(message) {
   statusLine.textContent = message || "";
@@ -39,18 +56,46 @@ async function api(path, options = {}) {
   return payload;
 }
 
-function showApp() {
+function showApp(admin) {
+  currentAdmin = admin;
   loginCard.hidden = true;
   codeCard.hidden = true;
   adminApp.hidden = false;
-  logoutButton.hidden = false;
+  adminSession.hidden = false;
+  adminIdentity.textContent = `${admin.email}${admin.isSuperAdmin ? " · Super admin" : ""}`;
+  requiredPasswordNotice.hidden = !admin.mustChangePassword;
+  superAdminTools.hidden = !admin.isSuperAdmin || admin.mustChangePassword;
+  const contestTab = adminTabs.querySelector('[data-panel="contest-panel"]');
+  contestTab.disabled = admin.mustChangePassword;
+  if (admin.mustChangePassword) {
+    switchPanel("admins-panel");
+  } else {
+    switchPanel("contest-panel");
+  }
 }
 
 function showLogin() {
+  currentAdmin = null;
   loginCard.hidden = false;
   codeCard.hidden = true;
   adminApp.hidden = true;
-  logoutButton.hidden = true;
+  adminSession.hidden = true;
+}
+
+function switchPanel(panelId) {
+  if (panelId === "contest-panel" && currentAdmin?.mustChangePassword) {
+    setStatus("Change your temporary password to continue.");
+    return;
+  }
+  contestPanel.hidden = panelId !== "contest-panel";
+  adminsPanel.hidden = panelId !== "admins-panel";
+  adminTabs.querySelectorAll("[data-panel]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.panel === panelId);
+  });
+  if (panelId === "admins-panel" && currentAdmin?.isSuperAdmin && !currentAdmin.mustChangePassword) {
+    setStatus("");
+    loadAdmins().catch((error) => setStatus(error.message));
+  }
 }
 
 function queryString() {
@@ -156,15 +201,19 @@ codeForm.addEventListener("submit", async (event) => {
   button.disabled = true;
   setStatus("Verifying code...");
   try {
-    await api("/api/admin/verify", {
+    const payload = await api("/api/admin/verify", {
       method: "POST",
       body: JSON.stringify({
         email: pendingEmail || adminEmailInput.value,
         code: adminCodeInput.value,
       }),
     });
-    showApp();
-    await loadEntries();
+    showApp(payload.admin);
+    if (!payload.admin.mustChangePassword) {
+      await loadEntries();
+    } else {
+      setStatus("Change your temporary password to continue.");
+    }
   } catch (error) {
     setStatus(error.message);
   } finally {
@@ -181,6 +230,13 @@ logoutButton.addEventListener("click", async () => {
   await api("/api/admin/logout", { method: "POST" }).catch(() => {});
   showLogin();
   setStatus("Logged out.");
+});
+
+adminTabs.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-panel]");
+  if (button) {
+    switchPanel(button.dataset.panel);
+  }
 });
 
 drawButton.addEventListener("click", async () => {
@@ -228,10 +284,142 @@ entriesList.addEventListener("click", async (event) => {
   }
 });
 
+changePasswordForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (newPasswordInput.value !== confirmPasswordInput.value) {
+    setStatus("New password and confirmation do not match.");
+    return;
+  }
+  const button = changePasswordForm.querySelector('button[type="submit"]');
+  button.disabled = true;
+  setStatus("Changing password...");
+  try {
+    const payload = await api("/api/admin/password", {
+      method: "POST",
+      body: JSON.stringify({
+        currentPassword: currentPasswordInput.value,
+        newPassword: newPasswordInput.value,
+      }),
+    });
+    changePasswordForm.reset();
+    showApp(payload.admin);
+    switchPanel("admins-panel");
+    setStatus("Password changed successfully.");
+  } catch (error) {
+    setStatus(error.message);
+  } finally {
+    button.disabled = false;
+  }
+});
+
+addAdminForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = addAdminForm.querySelector('button[type="submit"]');
+  button.disabled = true;
+  setStatus("Adding administrator...");
+  try {
+    await api("/api/admin/accounts", {
+      method: "POST",
+      body: JSON.stringify({
+        email: newAdminEmailInput.value,
+        temporaryPassword: temporaryPasswordInput.value,
+        isSuperAdmin: newAdminSuperInput.checked,
+      }),
+    });
+    addAdminForm.reset();
+    await loadAdmins();
+    setStatus("Administrator added. Share the temporary password securely.");
+  } catch (error) {
+    setStatus(error.message);
+  } finally {
+    button.disabled = false;
+  }
+});
+
+adminList.addEventListener("click", async (event) => {
+  const button = event.target.closest("button[data-admin-action]");
+  if (!button) {
+    return;
+  }
+  const adminId = button.dataset.adminId;
+  const action = button.dataset.adminAction;
+  button.disabled = true;
+  try {
+    if (action === "role") {
+      await api(`/api/admin/accounts/${adminId}/role`, {
+        method: "PATCH",
+        body: JSON.stringify({ isSuperAdmin: button.dataset.superAdmin === "true" }),
+      });
+      setStatus("Super admin designation updated.");
+    } else if (action === "remove") {
+      const email = button.dataset.adminEmail;
+      if (!window.confirm(`Remove administrator access for ${email}?`)) {
+        return;
+      }
+      await api(`/api/admin/accounts/${adminId}`, { method: "DELETE" });
+      setStatus(`${email} was removed.`);
+    }
+    await loadAdmins();
+  } catch (error) {
+    setStatus(error.message);
+  } finally {
+    button.disabled = false;
+  }
+});
+
+async function loadAdmins() {
+  const payload = await api("/api/admin/accounts");
+  renderAdmins(payload.admins);
+}
+
+function renderAdmins(admins) {
+  adminList.innerHTML = admins
+    .map((admin) => {
+      const isCurrent = admin.id === currentAdmin.id;
+      const labels = [
+        admin.isSuperAdmin ? '<span class="pill success">Super admin</span>' : '<span class="pill">Admin</span>',
+        admin.isPermanent ? '<span class="pill success">Permanent</span>' : "",
+        admin.mustChangePassword ? '<span class="pill">Temporary password</span>' : "",
+      ].join("");
+      const actions =
+        admin.isPermanent || isCurrent
+          ? ""
+          : `<div class="admin-account-actions">
+              <button
+                class="ghost-button"
+                data-admin-action="role"
+                data-admin-id="${admin.id}"
+                data-super-admin="${!admin.isSuperAdmin}"
+                type="button"
+              >${admin.isSuperAdmin ? "Remove super admin" : "Make super admin"}</button>
+              <button
+                class="danger-button"
+                data-admin-action="remove"
+                data-admin-id="${admin.id}"
+                data-admin-email="${escapeHtml(admin.email)}"
+                type="button"
+              >Remove</button>
+            </div>`;
+      return `<article class="admin-account">
+        <div>
+          <strong>${escapeHtml(admin.email)}${isCurrent ? " (you)" : ""}</strong>
+          <div class="pill-row">${labels}</div>
+          <small>Added ${new Date(admin.createdAt).toLocaleDateString()}${
+            admin.lastLoginAt ? ` · Last login ${new Date(admin.lastLoginAt).toLocaleString()}` : " · Never logged in"
+          }</small>
+        </div>
+        ${actions}
+      </article>`;
+    })
+    .join("");
+}
+
 api("/api/admin/me")
-  .then(async () => {
-    showApp();
-    await loadEntries();
+  .then(async (payload) => {
+    showApp(payload.admin);
+    if (!payload.admin.mustChangePassword) {
+      await loadEntries();
+    }
   })
   .catch(() => {
     showLogin();

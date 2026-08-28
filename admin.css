@@ -73,6 +73,19 @@ button:disabled {
   width: min(240px, 54vw);
 }
 
+.admin-session {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.admin-session[hidden] {
+  display: none;
+}
+
 .admin-header h1,
 .admin-card h2 {
   margin: 0;
@@ -102,6 +115,24 @@ button:disabled {
 
 .auth-card {
   max-width: 420px;
+}
+
+.admin-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.admin-tab {
+  border: 1px solid var(--line);
+  background: white;
+  color: var(--brand-dark);
+}
+
+.admin-tab.is-active {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--brand-blue), var(--brand-indigo));
+  color: white;
 }
 
 .admin-form {
@@ -192,6 +223,87 @@ textarea {
   color: var(--ink-soft);
 }
 
+.required-password-notice {
+  margin-bottom: 14px;
+  border: 1px solid #f0c76e;
+  border-radius: 8px;
+  background: #fff8e5;
+  color: #7b5612;
+  font-weight: 800;
+  padding: 14px 16px;
+}
+
+.password-card,
+.add-admin-card {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(300px, 1.2fr);
+  gap: 28px;
+  align-items: start;
+  margin-bottom: 14px;
+}
+
+.password-card p,
+.add-admin-card p {
+  margin: 8px 0 0;
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+
+.compact-form {
+  margin-top: 0;
+}
+
+.checkbox-label {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+}
+
+.checkbox-label input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+.admin-list-card {
+  margin-bottom: 14px;
+}
+
+.admin-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.admin-account {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 16px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.admin-account strong,
+.admin-account small {
+  display: block;
+}
+
+.admin-account .pill-row {
+  margin-top: 8px;
+}
+
+.admin-account small {
+  margin-top: 8px;
+  color: var(--ink-soft);
+}
+
+.admin-account-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .entries-list {
   display: grid;
   gap: 12px;
@@ -270,8 +382,17 @@ textarea {
   .admin-header,
   .toolbar,
   .draw-card,
-  .entry-card {
+  .entry-card,
+  .password-card,
+  .add-admin-card,
+  .admin-account {
     grid-template-columns: 1fr;
+  }
+
+  .admin-session,
+  .admin-account-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .stats-grid {

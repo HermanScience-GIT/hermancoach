@@ -5,13 +5,18 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  authenticateAdmin,
   clearAdminSessionCookie,
-  configuredAdminEmail,
   createAdminCode,
   createAdminSessionCookie,
+  ensurePermanentSuperAdmin,
+  hashAdminPassword,
   hashAdminCode,
   requireAdmin,
-  verifyAdminPassword,
+  requireCompletedPasswordChange,
+  requireSuperAdmin,
+  validateAdminPassword,
+  verifyPasswordHash,
 } from "./adminAuth.js";
 import { prisma } from "./db.js";
 import { sendAdminCodeEmail, sendCoachLinkEmail } from "./email.js";
@@ -359,7 +364,8 @@ app.get("/api/email/confirm", async (request, response) => {
 app.post("/api/admin/login", async (request, response) => {
   const email = normalizeEmail(request.body?.email);
   const password = String(request.body?.password || "");
-  if (!verifyAdminPassword(email, password)) {
+  const admin = await authenticateAdmin(email, password);
+  if (!admin) {
     response.status(401).json({ error: "Invalid admin credentials." });
     return;
   }
@@ -402,17 +408,24 @@ app.post("/api/admin/verify", async (request, response) => {
     },
     orderBy: { createdAt: "desc" },
   });
-  if (!loginCode || email !== configuredAdminEmail()) {
+  const admin = await prisma.admin.findUnique({ where: { email } });
+  if (!loginCode || !admin) {
     response.status(401).json({ error: "Invalid or expired code." });
     return;
   }
 
-  await prisma.adminLoginCode.update({
-    where: { id: loginCode.id },
-    data: { usedAt: new Date() },
-  });
-  response.setHeader("Set-Cookie", createAdminSessionCookie(email));
-  response.json({ ok: true, email });
+  const [, updatedAdmin] = await prisma.$transaction([
+    prisma.adminLoginCode.updateMany({
+      where: { email, usedAt: null },
+      data: { usedAt: new Date() },
+    }),
+    prisma.admin.update({
+      where: { id: admin.id },
+      data: { lastLoginAt: new Date() },
+    }),
+  ]);
+  response.setHeader("Set-Cookie", createAdminSessionCookie(updatedAdmin));
+  response.json({ ok: true, admin: adminDto(updatedAdmin) });
 });
 
 app.post("/api/admin/logout", requireAdmin, (_request, response) => {
@@ -421,10 +434,143 @@ app.post("/api/admin/logout", requireAdmin, (_request, response) => {
 });
 
 app.get("/api/admin/me", requireAdmin, (request, response) => {
-  response.json({ email: request.admin.email });
+  response.json({ admin: adminDto(request.admin) });
 });
 
-app.get("/api/admin/entries", requireAdmin, async (request, response) => {
+app.post("/api/admin/password", requireAdmin, async (request, response) => {
+  const currentPassword = String(request.body?.currentPassword || "");
+  const newPassword = String(request.body?.newPassword || "");
+  if (!verifyPasswordHash(currentPassword, request.admin.passwordHash)) {
+    response.status(401).json({ error: "Current password is incorrect." });
+    return;
+  }
+  const passwordError = validateAdminPassword(newPassword);
+  if (passwordError) {
+    response.status(400).json({ error: passwordError });
+    return;
+  }
+  if (currentPassword === newPassword) {
+    response.status(400).json({ error: "New password must be different from the current password." });
+    return;
+  }
+
+  const [updatedAdmin] = await prisma.$transaction([
+    prisma.admin.update({
+      where: { id: request.admin.id },
+      data: {
+        passwordHash: hashAdminPassword(newPassword),
+        mustChangePassword: false,
+        sessionVersion: { increment: 1 },
+      },
+    }),
+    prisma.adminLoginCode.updateMany({
+      where: { email: request.admin.email, usedAt: null },
+      data: { usedAt: new Date() },
+    }),
+  ]);
+  response.setHeader("Set-Cookie", createAdminSessionCookie(updatedAdmin));
+  response.json({ ok: true, admin: adminDto(updatedAdmin) });
+});
+
+app.get(
+  "/api/admin/accounts",
+  requireAdmin,
+  requireCompletedPasswordChange,
+  requireSuperAdmin,
+  async (_request, response) => {
+    const admins = await prisma.admin.findMany({ orderBy: [{ isPermanent: "desc" }, { email: "asc" }] });
+    response.json({ admins: admins.map(adminDto) });
+  },
+);
+
+app.post(
+  "/api/admin/accounts",
+  requireAdmin,
+  requireCompletedPasswordChange,
+  requireSuperAdmin,
+  async (request, response) => {
+    const email = normalizeEmail(request.body?.email);
+    const temporaryPassword = String(request.body?.temporaryPassword || "");
+    const passwordError = validateAdminPassword(temporaryPassword);
+    if (!email || !email.includes("@")) {
+      response.status(400).json({ error: "A valid admin email is required." });
+      return;
+    }
+    if (passwordError) {
+      response.status(400).json({ error: passwordError });
+      return;
+    }
+    if (await prisma.admin.findUnique({ where: { email } })) {
+      response.status(409).json({ error: "An admin with that email already exists." });
+      return;
+    }
+
+    const admin = await prisma.admin.create({
+      data: {
+        email,
+        passwordHash: hashAdminPassword(temporaryPassword),
+        isSuperAdmin: request.body?.isSuperAdmin === true,
+        mustChangePassword: true,
+      },
+    });
+    response.status(201).json({ admin: adminDto(admin) });
+  },
+);
+
+app.patch(
+  "/api/admin/accounts/:id/role",
+  requireAdmin,
+  requireCompletedPasswordChange,
+  requireSuperAdmin,
+  async (request, response) => {
+    const admin = await prisma.admin.findUnique({ where: { id: String(request.params.id || "") } });
+    if (!admin) {
+      response.status(404).json({ error: "Admin account not found." });
+      return;
+    }
+    if (admin.isPermanent) {
+      response.status(409).json({ error: "The permanent super admin cannot be changed." });
+      return;
+    }
+    if (admin.id === request.admin.id) {
+      response.status(409).json({ error: "You cannot change your own super admin designation." });
+      return;
+    }
+
+    const updatedAdmin = await prisma.admin.update({
+      where: { id: admin.id },
+      data: { isSuperAdmin: request.body?.isSuperAdmin === true },
+    });
+    response.json({ admin: adminDto(updatedAdmin) });
+  },
+);
+
+app.delete(
+  "/api/admin/accounts/:id",
+  requireAdmin,
+  requireCompletedPasswordChange,
+  requireSuperAdmin,
+  async (request, response) => {
+    const admin = await prisma.admin.findUnique({ where: { id: String(request.params.id || "") } });
+    if (!admin) {
+      response.status(404).json({ error: "Admin account not found." });
+      return;
+    }
+    if (admin.isPermanent) {
+      response.status(409).json({ error: "The permanent super admin cannot be removed." });
+      return;
+    }
+    if (admin.id === request.admin.id) {
+      response.status(409).json({ error: "You cannot remove your own account." });
+      return;
+    }
+
+    await prisma.admin.delete({ where: { id: admin.id } });
+    response.json({ ok: true });
+  },
+);
+
+app.get("/api/admin/entries", requireAdmin, requireCompletedPasswordChange, async (request, response) => {
   const period = parseAdminPeriod(request.query);
   const submissions = await loadAdminSubmissions(period);
   response.json({
@@ -434,7 +580,7 @@ app.get("/api/admin/entries", requireAdmin, async (request, response) => {
   });
 });
 
-app.get("/api/admin/entries.csv", requireAdmin, async (request, response) => {
+app.get("/api/admin/entries.csv", requireAdmin, requireCompletedPasswordChange, async (request, response) => {
   const period = parseAdminPeriod(request.query);
   const submissions = await loadAdminSubmissions(period);
   const csv = toCsv([
@@ -476,29 +622,34 @@ app.get("/api/admin/entries.csv", requireAdmin, async (request, response) => {
   response.send(csv);
 });
 
-app.patch("/api/admin/submissions/:id", requireAdmin, async (request, response) => {
-  const submissionId = String(request.params.id || "");
-  const status = String(request.body?.status || "");
-  const reason = String(request.body?.reason || "").trim();
-  if (!["eligible", "disqualified"].includes(status)) {
-    response.status(400).json({ error: "Status must be eligible or disqualified." });
-    return;
-  }
+app.patch(
+  "/api/admin/submissions/:id",
+  requireAdmin,
+  requireCompletedPasswordChange,
+  async (request, response) => {
+    const submissionId = String(request.params.id || "");
+    const status = String(request.body?.status || "");
+    const reason = String(request.body?.reason || "").trim();
+    if (!["eligible", "disqualified"].includes(status)) {
+      response.status(400).json({ error: "Status must be eligible or disqualified." });
+      return;
+    }
 
-  const submission = await prisma.promptSubmission.update({
-    where: { id: submissionId },
-    data: {
-      status,
-      disqualifiedReason: status === "disqualified" ? reason || "Admin disqualified" : null,
-      reviewedAt: new Date(),
-      reviewedBy: request.admin.email,
-    },
-    include: adminSubmissionInclude,
-  });
-  response.json({ entry: adminSubmissionDto(submission) });
-});
+    const submission = await prisma.promptSubmission.update({
+      where: { id: submissionId },
+      data: {
+        status,
+        disqualifiedReason: status === "disqualified" ? reason || "Admin disqualified" : null,
+        reviewedAt: new Date(),
+        reviewedBy: request.admin.email,
+      },
+      include: adminSubmissionInclude,
+    });
+    response.json({ entry: adminSubmissionDto(submission) });
+  },
+);
 
-app.post("/api/admin/draw-winner", requireAdmin, async (request, response) => {
+app.post("/api/admin/draw-winner", requireAdmin, requireCompletedPasswordChange, async (request, response) => {
   const period = parseAdminPeriod(request.body || {});
   const eligibleSubmissions = await prisma.promptSubmission.findMany({
     where: {
@@ -736,9 +887,23 @@ app.use((_request, response) => {
   });
 });
 
+await ensurePermanentSuperAdmin();
+
 app.listen(port, host, () => {
   console.log(`HermanCoach listening on http://${host}:${port}`);
 });
+
+function adminDto(admin) {
+  return {
+    id: admin.id,
+    email: admin.email,
+    isSuperAdmin: admin.isSuperAdmin,
+    isPermanent: admin.isPermanent,
+    mustChangePassword: admin.mustChangePassword,
+    lastLoginAt: admin.lastLoginAt,
+    createdAt: admin.createdAt,
+  };
+}
 
 function isLegacyStructuredPrompt(currentPrompt) {
   return String(currentPrompt || "").startsWith(
