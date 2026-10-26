@@ -44,7 +44,9 @@ const demoCoachToken = "hsc-7f4a9d2b81";
 
 const app = express();
 const publicBaseUrl = (process.env.PUBLIC_BASE_URL || `http://${host}:${port}`).replace(/\/$/, "");
-const cqiLink = process.env.CQI_LINK || "https://hermanscience.com";
+const cqiLink =
+  process.env.CQI_LINK ||
+  "https://hermancqinow.com/?utm_source=landing_page&utm_medium=web&utm_campaign=herman_coach_tool";
 
 app.disable("x-powered-by");
 app.use(express.json({ limit: "64kb" }));

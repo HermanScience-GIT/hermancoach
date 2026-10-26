@@ -9,6 +9,10 @@ const rescoreDraftButton = document.querySelector("#rescore-draft");
 const draftInput = document.querySelector("#draft-input");
 const draftCharCount = document.querySelector("#draft-char-count");
 const toast = document.querySelector("#toast");
+const scoringScreen = document.querySelector('[data-screen="scoring"]');
+const scoringTitle = document.querySelector("#scoring-title");
+const scoringStatus = document.querySelector("#scoring-status");
+const scoringRows = Array.from(document.querySelectorAll("[data-scoring-dimension]"));
 const scoreScreen = document.querySelector('[data-screen="score"]');
 const coachScreen = document.querySelector('[data-screen="coach"]');
 const scoreHero = document.querySelector(".score-hero");
@@ -25,6 +29,9 @@ const weeklyLeaderMessage = document.querySelector("#weekly-leader-message");
 const duplicateEntryNotice = document.querySelector("#duplicate-entry-notice");
 const duplicateCoachLink = document.querySelector("#duplicate-coach-link");
 const cqiLink = document.querySelector("#cqi-link");
+const entrySuccessModal = document.querySelector("#entry-success-modal");
+const entrySuccessEmail = document.querySelector("#entry-success-email");
+const confirmEntrySuccessButton = document.querySelector("#confirm-entry-success");
 const openContextVideoButton = document.querySelector("#open-context-video");
 const closeContextVideoButton = document.querySelector("#close-context-video");
 const contextVideoModal = document.querySelector("#context-video-modal");
@@ -36,6 +43,7 @@ const coachDraftMaxLength = 2000;
 let currentPromptText = promptInput.value.trim();
 let currentScore = null;
 let previousFocusElement = null;
+let pendingCoachUrl = null;
 
 function showScreen(name, options = {}) {
   screens.forEach((screen) => {
@@ -96,6 +104,26 @@ function closeContextVideo() {
   }
 }
 
+function openEntrySuccessModal({ email, coachUrl }) {
+  if (!coachUrl) return;
+  if (!entrySuccessModal || !entrySuccessEmail || !confirmEntrySuccessButton) {
+    window.location.assign(coachUrl);
+    return;
+  }
+
+  pendingCoachUrl = coachUrl;
+  entrySuccessEmail.textContent = email || emailInput.value.trim();
+  entrySuccessModal.classList.remove("hidden");
+  document.body.classList.add("modal-open");
+  confirmEntrySuccessButton.focus();
+}
+
+function confirmEntrySuccess() {
+  if (!pendingCoachUrl) return;
+  confirmEntrySuccessButton.disabled = true;
+  window.location.assign(pendingCoachUrl);
+}
+
 async function apiFetch(path, options = {}) {
   const response = await fetch(path, {
     headers: {
@@ -119,6 +147,87 @@ function setButtonLoading(button, label) {
     button.textContent = original;
     button.disabled = false;
   };
+}
+
+function wait(milliseconds) {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+function resetScoringProgress() {
+  if (scoringTitle) scoringTitle.textContent = "Scoring your prompt…";
+  if (scoringStatus) scoringStatus.textContent = "Reviewing role, task, context, and output.";
+  if (scoringScreen) scoringScreen.setAttribute("aria-busy", "true");
+
+  scoringRows.forEach((row) => {
+    row.classList.remove("is-active", "is-complete");
+    const bar = row.querySelector(".bar i");
+    const value = row.querySelector("strong");
+    if (bar) {
+      bar.style.width = "0%";
+      bar.style.setProperty("--score-width", "100");
+    }
+    if (value) value.textContent = "0";
+  });
+}
+
+function animateScoringValue(element, target, duration) {
+  if (!element || duration === 0) {
+    if (element) element.textContent = String(target);
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    const startedAt = performance.now();
+    function update(now) {
+      const progress = Math.min((now - startedAt) / duration, 1);
+      const easedProgress = 1 - Math.pow(1 - progress, 3);
+      element.textContent = String(Math.round(target * easedProgress));
+      if (progress < 1) {
+        window.requestAnimationFrame(update);
+      } else {
+        resolve();
+      }
+    }
+    window.requestAnimationFrame(update);
+  });
+}
+
+async function showScoringProgress(score) {
+  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const animationDuration = prefersReducedMotion ? 0 : 480;
+  const stepPause = prefersReducedMotion ? 0 : 120;
+  const completionPause = prefersReducedMotion ? 250 : 700;
+  const dimensionLabels = {
+    whoScore: "Who",
+    taskScore: "Task",
+    contextScore: "Context",
+    outputScore: "Output",
+  };
+
+  for (const row of scoringRows) {
+    const scoreKey = row.dataset.scoringDimension;
+    const scoreValue = Number(score[scoreKey]) || 0;
+    const bar = row.querySelector(".bar i");
+    const value = row.querySelector("strong");
+
+    if (scoringStatus) scoringStatus.textContent = `Scoring ${dimensionLabels[scoreKey]}…`;
+    row.classList.add("is-active");
+    if (bar) {
+      bar.style.setProperty("--score-width", String(Math.max(scoreValue, 1)));
+      window.requestAnimationFrame(() => {
+        bar.style.width = `${scoreValue}%`;
+      });
+    }
+    await animateScoringValue(value, scoreValue, animationDuration);
+    row.classList.remove("is-active");
+    row.classList.add("is-complete");
+    await wait(stepPause);
+  }
+
+  if (scoringTitle) scoringTitle.textContent = "Scoring complete";
+  if (scoringStatus) scoringStatus.textContent = "Your detailed results are ready.";
+  if (scoringScreen) scoringScreen.setAttribute("aria-busy", "false");
+  await wait(completionPause);
 }
 
 function applyScore(score) {
@@ -199,7 +308,7 @@ async function loadPublicConfig() {
       cqiLink.href = payload.cqiLink;
     }
   } catch {
-    cqiLink.href = "https://hermanscience.com";
+    cqiLink.href = "https://hermancqinow.com/?utm_source=landing_page&utm_medium=web&utm_campaign=herman_coach_tool";
   }
 }
 
@@ -278,6 +387,10 @@ if (closeContextVideoButton) {
   closeContextVideoButton.addEventListener("click", closeContextVideo);
 }
 
+if (confirmEntrySuccessButton) {
+  confirmEntrySuccessButton.addEventListener("click", confirmEntrySuccess);
+}
+
 document.querySelectorAll("[data-close-context-video]").forEach((element) => {
   element.addEventListener("click", closeContextVideo);
 });
@@ -297,6 +410,8 @@ promptForm.addEventListener("submit", async (event) => {
     return;
   }
   const finishLoading = setButtonLoading(promptForm.querySelector("button"), "Scoring...");
+  resetScoringProgress();
+  showScreen("scoring");
   try {
     const payload = await apiFetch("/api/score-preview", {
       method: "POST",
@@ -304,8 +419,10 @@ promptForm.addEventListener("submit", async (event) => {
     });
     currentPromptText = prompt;
     applyScore(payload.score);
+    await showScoringProgress(payload.score);
     showScreen("score");
   } catch (error) {
+    showScreen("challenge");
     showToast(error.message);
   } finally {
     finishLoading();
@@ -319,7 +436,7 @@ contactForm.addEventListener("submit", async (event) => {
     showScreen("challenge");
     return;
   }
-  const finishLoading = setButtonLoading(contactForm.querySelector("button"), "Opening...");
+  const finishLoading = setButtonLoading(contactForm.querySelector("button"), "Submitting...");
   try {
     const payload = await apiFetch("/api/entries", {
       method: "POST",
@@ -340,7 +457,7 @@ contactForm.addEventListener("submit", async (event) => {
       showDuplicateEntryNotice(payload);
       return;
     }
-    window.location.assign(payload.coachUrl);
+    openEntrySuccessModal(payload);
   } catch (error) {
     showToast(error.message);
   } finally {
