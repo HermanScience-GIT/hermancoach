@@ -16,10 +16,15 @@
   "dependencies": {
     "@prisma/client": "^6.9.0",
     "dotenv": "^16.4.7",
-    "express": "^4.21.2"
+    "express": "^4.22.3"
   },
   "devDependencies": {
     "prisma": "^6.9.0"
+  },
+  "overrides": {
+    "@prisma/config": {
+      "deepmerge-ts": "8.0.2"
+    }
   },
   "engines": {
     "node": ">=22"

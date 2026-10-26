@@ -136,3 +136,15 @@ Run production migrations during deploy with:
 ```bash
 npm run db:deploy
 ```
+
+## Dependency security
+
+The Prisma 6 configuration package pins an affected version of `deepmerge-ts`.
+The scoped override in `package.json` selects version 8.0.2, which supports circular
+references and limits recursion. Keep this override until a compatible Prisma
+release includes the fix. Verify Prisma client generation, migrations, and startup
+when changing it.
+
+Run `npm test`, `npm audit`, and `npm audit --omit=dev` after dependency updates.
+The security regression tests exercise compressed request handling, proxy trust,
+query parsing, and recursive configuration merging.
