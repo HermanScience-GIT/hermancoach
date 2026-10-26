@@ -46,6 +46,10 @@ let previousFocusElement = null;
 let pendingCoachUrl = null;
 
 function showScreen(name, options = {}) {
+  if (name === "coach") {
+    closeContextVideo({ restoreFocus: false });
+  }
+
   screens.forEach((screen) => {
     screen.classList.toggle("hidden", screen.dataset.screen !== name);
   });
@@ -92,14 +96,14 @@ function openContextVideo() {
   }
 }
 
-function closeContextVideo() {
+function closeContextVideo({ restoreFocus = true } = {}) {
   if (!contextVideoModal) return;
   contextVideoModal.classList.add("hidden");
   document.body.classList.remove("modal-open");
   if (contextVideo) {
     contextVideo.pause();
   }
-  if (previousFocusElement) {
+  if (restoreFocus && previousFocusElement) {
     previousFocusElement.focus();
   }
 }
